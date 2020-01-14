@@ -40,10 +40,10 @@ int semaphore_signal(KernelState &kernel, const char *export_name, SceUID thread
 int semaphore_delete(KernelState &kernel, const char *export_name, SceUID thread_id, SceUID semaid);
 
 // Condition Variable
-SceUID condvar_create(SceUID *uid_out, KernelState &kernel, const char *export_name, const char *name, SceUID thread_id, SceUInt attr, SceUID assoc_mutexid, SyncWeight weight);
-int condvar_wait(KernelState &kernel, const char *export_name, SceUID thread_id, SceUID semaid, SceUInt *timeout, SyncWeight weight);
-int condvar_signal(KernelState &kernel, const char *export_name, SceUID thread_id, SceUID condid, Condvar::SignalTarget signal_target, SyncWeight weight);
-int condvar_delete(KernelState &kernel, const char *export_name, SceUID thread_id, SceUID mutexid, SyncWeight weight);
+SceUID condvar_create(SceUID *uid_out, KernelState &kernel, const char *export_name, emu::SceKernelLwCondWork *workarea, const char *name, SceUID thread_id, SceUInt attr, SceUID assoc_mutexid, SyncWeight weight);
+int condvar_wait(KernelState &kernel, const char *export_name, SceUID thread_id, emu::SceKernelLwCondWork *workarea, SceUID cond, SceUInt *timeout, SyncWeight weight);
+int condvar_signal(KernelState &kernel, const char *export_name, SceUID thread_id, emu::SceKernelLwCondWork *workarea, SceUID condid, Condvar::SignalTarget signal_target, SyncWeight weight);
+int condvar_delete(KernelState &kernel, const char *export_name, SceUID thread_id, emu::SceKernelLwCondWork *workarea, SceUID condid, SyncWeight weight);
 
 // Event Flag
 SceUID eventflag_create(KernelState &kernel, const char *export_name, const char *event_name, SceUID thread_id, SceUInt attr, unsigned int flags);

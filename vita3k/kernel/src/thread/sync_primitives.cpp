@@ -451,7 +451,7 @@ int semaphore_delete(KernelState &kernel, const char *export_name, SceUID thread
 // * Condition Variable *
 // **********************
 
-SceUID condvar_create(SceUID *uid_out, KernelState &kernel, const char *export_name, const char *name, SceUID thread_id, SceUInt attr, SceUID assoc_mutexid, SyncWeight weight) {
+SceUID condvar_create(SceUID *uid_out, KernelState &kernel, const char *export_name, emu::SceKernelLwCondWork *workarea, const char *name, SceUID thread_id, SceUInt attr, SceUID assoc_mutexid, SyncWeight weight) {
     if ((strlen(name) > 31) && ((attr & 0x80) == 0x80)) {
         return RET_ERROR(SCE_KERNEL_ERROR_UID_NAME_TOO_LONG);
     }
@@ -480,7 +480,7 @@ SceUID condvar_create(SceUID *uid_out, KernelState &kernel, const char *export_n
     return SCE_KERNEL_OK;
 }
 
-int condvar_wait(KernelState &kernel, const char *export_name, SceUID thread_id, SceUID condid, SceUInt *timeout, SyncWeight weight) {
+int condvar_wait(KernelState &kernel, const char *export_name, SceUID thread_id, emu::SceKernelLwCondWork *workarea, SceUID condid, SceUInt *timeout, SyncWeight weight) {
     assert(condid >= 0);
 
     CondvarPtr condvar;
@@ -514,10 +514,13 @@ int condvar_wait(KernelState &kernel, const char *export_name, SceUID thread_id,
     condvar->waiting_threads.emplace(data);
     condition_variable_lock.unlock();
 
+    if (weight == SyncWeight::Light)
+        workarea->owner = thread_id;
+
     return handle_timeout(thread, thread_lock, condition_variable_lock, *condvar, data, export_name, timeout);
 }
 
-int condvar_signal(KernelState &kernel, const char *export_name, SceUID thread_id, SceUID condid, Condvar::SignalTarget signal_target, SyncWeight weight) {
+int condvar_signal(KernelState &kernel, const char *export_name, SceUID thread_id, emu::SceKernelLwCondWork *workarea, SceUID condid, Condvar::SignalTarget signal_target, SyncWeight weight) {
     assert(condid >= 0);
 
     CondvarPtr condvar;
@@ -586,10 +589,13 @@ int condvar_signal(KernelState &kernel, const char *export_name, SceUID thread_i
         }
     }
 
+    if (weight == SyncWeight::Light)
+        workarea->owner = 0;
+
     return SCE_KERNEL_OK;
 }
 
-int condvar_delete(KernelState &kernel, const char *export_name, SceUID thread_id, SceUID condid, SyncWeight weight) {
+int condvar_delete(KernelState &kernel, const char *export_name, SceUID thread_id, emu::SceKernelLwCondWork *workarea, SceUID condid, SyncWeight weight) {
     assert(condid >= 0);
 
     CondvarPtr condvar;

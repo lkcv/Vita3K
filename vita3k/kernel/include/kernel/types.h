@@ -71,6 +71,7 @@ struct SceKernelLwCondWork {
     SceUID uid;
 
     std::uint8_t padding[28];
+    std::uint32_t owner;
 };
 
 static_assert(sizeof(SceKernelLwMutexWork) == 32, "Incorrect size");

@@ -852,7 +852,7 @@ EXPORT(int, sceKernelCloseModule) {
 EXPORT(int, sceKernelCreateCond, const char *name, SceUInt attr, SceUID mutexid, void *opt_param) {
     SceUID uid;
 
-    if (auto error = condvar_create(&uid, host.kernel, export_name, name, thread_id, attr, mutexid, SyncWeight::Heavy)) {
+    if (auto error = condvar_create(&uid, host.kernel, export_name, nullptr, name, thread_id, attr, mutexid, SyncWeight::Heavy)) {
         return error;
     }
     return uid;
@@ -862,11 +862,12 @@ EXPORT(int, sceKernelCreateEventFlag, const char *name, unsigned int attr, unsig
     return eventflag_create(host.kernel, export_name, name, thread_id, attr, flags);
 }
 
-EXPORT(int, sceKernelCreateLwCond, Ptr<emu::SceKernelLwCondWork> workarea, const char *name, SceUInt attr, Ptr<emu::SceKernelLwMutexWork> workarea_mutex, const SceKernelLwCondOptParam *opt_param) {
-    const auto uid_out = &workarea.get(host.mem)->uid;
-    const auto assoc_mutex_uid = workarea_mutex.get(host.mem)->uid;
+EXPORT(int, sceKernelCreateLwCond, Ptr<emu::SceKernelLwCondWork> workarea_ptr, const char *name, SceUInt attr, Ptr<emu::SceKernelLwMutexWork> workarea_mutex_ptr, const SceKernelLwCondOptParam *opt_param) {
+    const auto workarea = workarea_ptr.get(host.mem);
+    const auto uid_out = &workarea->uid;
+    const auto assoc_mutex_uid = workarea_mutex_ptr.get(host.mem)->uid;
 
-    return condvar_create(uid_out, host.kernel, export_name, name, thread_id, attr, assoc_mutex_uid, SyncWeight::Light);
+    return condvar_create(uid_out, host.kernel, export_name, workarea, name, thread_id, attr, assoc_mutex_uid, SyncWeight::Light);
 }
 
 EXPORT(int, sceKernelCreateLwMutex, Ptr<emu::SceKernelLwMutexWork> workarea, const char *name, SceUInt attr, int init_count, const SceKernelLwMutexOptParam *opt_param) {
@@ -956,10 +957,11 @@ EXPORT(SceUID, sceKernelCreateTimer, const char *name, uint32_t flags, const voi
     return handle;
 }
 
-EXPORT(int, sceKernelDeleteLwCond, Ptr<emu::SceKernelLwCondWork> workarea) {
-    SceUID lightweight_condition_id = workarea.get(host.mem)->uid;
+EXPORT(int, sceKernelDeleteLwCond, Ptr<emu::SceKernelLwCondWork> workarea_ptr) {
+    const auto workarea = workarea_ptr.get(host.mem);
+    SceUID lightweight_condition_id = workarea_ptr.get(host.mem)->uid;
 
-    return condvar_delete(host.kernel, export_name, thread_id, lightweight_condition_id, SyncWeight::Light);
+    return condvar_delete(host.kernel, export_name, thread_id, workarea, lightweight_condition_id, SyncWeight::Light);
 }
 
 EXPORT(int, sceKernelDeleteLwMutex, Ptr<emu::SceKernelLwMutexWork> workarea) {
@@ -1379,21 +1381,24 @@ EXPORT(int, sceKernelSetTimerTime) {
     return UNIMPLEMENTED();
 }
 
-EXPORT(int, sceKernelSignalLwCond, Ptr<emu::SceKernelLwCondWork> workarea) {
-    SceUID condid = workarea.get(host.mem)->uid;
-    return condvar_signal(host.kernel, export_name, thread_id, condid,
+EXPORT(int, sceKernelSignalLwCond, Ptr<emu::SceKernelLwCondWork> workarea_ptr) {
+    const auto workarea = workarea_ptr.get(host.mem);
+    const SceUID condid = workarea->uid;
+    return condvar_signal(host.kernel, export_name, thread_id, workarea, condid,
         Condvar::SignalTarget(Condvar::SignalTarget::Type::Any), SyncWeight::Light);
 }
 
-EXPORT(int, sceKernelSignalLwCondAll, Ptr<emu::SceKernelLwCondWork> workarea) {
-    SceUID condid = workarea.get(host.mem)->uid;
-    return condvar_signal(host.kernel, export_name, thread_id, condid,
+EXPORT(int, sceKernelSignalLwCondAll, Ptr<emu::SceKernelLwCondWork> workarea_ptr) {
+    const auto workarea = workarea_ptr.get(host.mem);
+    const SceUID condid = workarea->uid;
+    return condvar_signal(host.kernel, export_name, thread_id, workarea, condid,
         Condvar::SignalTarget(Condvar::SignalTarget::Type::All), SyncWeight::Light);
 }
 
-EXPORT(int, sceKernelSignalLwCondTo, Ptr<emu::SceKernelLwCondWork> workarea, SceUID thread_target) {
-    SceUID condid = workarea.get(host.mem)->uid;
-    return condvar_signal(host.kernel, export_name, thread_id, condid,
+EXPORT(int, sceKernelSignalLwCondTo, Ptr<emu::SceKernelLwCondWork> workarea_ptr, SceUID thread_target) {
+    const auto workarea = workarea_ptr.get(host.mem);
+    const SceUID condid = workarea->uid;
+    return condvar_signal(host.kernel, export_name, thread_id, workarea, condid,
         Condvar::SignalTarget(Condvar::SignalTarget::Type::Specific, thread_target), SyncWeight::Light);
 }
 
@@ -1458,12 +1463,12 @@ EXPORT(int, sceKernelUnlockLwMutex2, Ptr<emu::SceKernelLwMutexWork> workarea, in
 }
 
 EXPORT(int, sceKernelWaitCond, SceUID cond_id, SceUInt32 *timeout) {
-    return condvar_wait(host.kernel, export_name, thread_id, cond_id, timeout, SyncWeight::Heavy);
+    return condvar_wait(host.kernel, export_name, thread_id, nullptr, cond_id, timeout, SyncWeight::Heavy);
 }
 
 EXPORT(int, sceKernelWaitCondCB, SceUID cond_id, SceUInt32 *timeout) {
     STUBBED("no CB");
-    return condvar_wait(host.kernel, export_name, thread_id, cond_id, timeout, SyncWeight::Heavy);
+    return condvar_wait(host.kernel, export_name, thread_id, nullptr, cond_id, timeout, SyncWeight::Heavy);
 }
 
 EXPORT(int, sceKernelWaitEvent) {
@@ -1491,15 +1496,17 @@ EXPORT(int, sceKernelWaitExceptionCB) {
     return UNIMPLEMENTED();
 }
 
-EXPORT(int, sceKernelWaitLwCond, Ptr<emu::SceKernelLwCondWork> workarea, SceUInt32 *timeout) {
-    const auto cond_id = workarea.get(host.mem)->uid;
-    return condvar_wait(host.kernel, export_name, thread_id, cond_id, timeout, SyncWeight::Light);
+EXPORT(int, sceKernelWaitLwCond, Ptr<emu::SceKernelLwCondWork> workarea_ptr, SceUInt32 *timeout) {
+    const auto workarea = workarea_ptr.get(host.mem);
+    const auto cond_id = workarea->uid;
+    return condvar_wait(host.kernel, export_name, thread_id, workarea, cond_id, timeout, SyncWeight::Light);
 }
 
-EXPORT(int, sceKernelWaitLwCondCB, Ptr<emu::SceKernelLwCondWork> workarea, SceUInt32 *timeout) {
+EXPORT(int, sceKernelWaitLwCondCB, Ptr<emu::SceKernelLwCondWork> workarea_ptr, SceUInt32 *timeout) {
     STUBBED("no CB");
-    const auto cond_id = workarea.get(host.mem)->uid;
-    return condvar_wait(host.kernel, export_name, thread_id, cond_id, timeout, SyncWeight::Light);
+    const auto workarea = workarea_ptr.get(host.mem);
+    const auto cond_id = workarea->uid;
+    return condvar_wait(host.kernel, export_name, thread_id, workarea, cond_id, timeout, SyncWeight::Light);
 }
 
 EXPORT(int, sceKernelWaitMultipleEvents) {

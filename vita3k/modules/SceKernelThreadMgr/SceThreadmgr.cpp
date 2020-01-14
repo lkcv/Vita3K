@@ -521,7 +521,7 @@ EXPORT(int, sceKernelDeleteCallback) {
 }
 
 EXPORT(int, sceKernelDeleteCond, SceUID condition_variable_id) {
-    return condvar_delete(host.kernel, export_name, thread_id, condition_variable_id, SyncWeight::Heavy);
+    return condvar_delete(host.kernel, export_name, thread_id, nullptr, condition_variable_id, SyncWeight::Heavy);
 }
 
 EXPORT(int, sceKernelDeleteEventFlag, SceUID event_id) {
@@ -735,17 +735,17 @@ EXPORT(int, sceKernelSetTimerTimeWide) {
 }
 
 EXPORT(int, sceKernelSignalCond, SceUID condid) {
-    return condvar_signal(host.kernel, export_name, thread_id, condid,
+    return condvar_signal(host.kernel, export_name, thread_id, nullptr, condid,
         Condvar::SignalTarget(Condvar::SignalTarget::Type::Any), SyncWeight::Heavy);
 }
 
 EXPORT(int, sceKernelSignalCondAll, SceUID condid) {
-    return condvar_signal(host.kernel, export_name, thread_id, condid,
+    return condvar_signal(host.kernel, export_name, thread_id, nullptr, condid,
         Condvar::SignalTarget(Condvar::SignalTarget::Type::All), SyncWeight::Heavy);
 }
 
 EXPORT(int, sceKernelSignalCondTo, SceUID condid, SceUID thread_target) {
-    return condvar_signal(host.kernel, export_name, thread_id, condid,
+    return condvar_signal(host.kernel, export_name, thread_id, nullptr, condid,
         Condvar::SignalTarget(Condvar::SignalTarget::Type::Specific, thread_target), SyncWeight::Heavy);
 }
 
