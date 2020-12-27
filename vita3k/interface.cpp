@@ -44,10 +44,6 @@
 #include <gdbstub/functions.h>
 #endif
 
-#if USE_DISCORD
-#include <app/discord.h>
-#endif
-
 static size_t write_to_buffer(void *pOpaque, mz_uint64 file_ofs, const void *pBuf, size_t n) {
     vfs::FileBuffer *const buffer = static_cast<vfs::FileBuffer *>(pOpaque);
     assert(file_ofs == buffer->size());
@@ -490,11 +486,6 @@ ExitCode load_app(Ptr<const void> &entry_point, HostState &host, const std::wstr
 
 #ifdef USE_GDBSTUB
     server_open(host);
-#endif
-
-#if USE_DISCORD
-    if (host.cfg.discord_rich_presence)
-        discordrpc::update_presence(host.io.title_id, host.current_app_title);
 #endif
 
     return Success;
