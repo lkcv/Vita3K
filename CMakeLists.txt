@@ -17,6 +17,7 @@ endif()
 enable_testing()
 
 macro(pre_configure_boost)
+	set(BOOST_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/external/boost")
 	find_package(Boost COMPONENTS filesystem system QUIET)
 
 	if (Boost_FOUND)
