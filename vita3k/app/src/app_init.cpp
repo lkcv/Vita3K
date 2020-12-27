@@ -32,10 +32,6 @@
 #include <util/log.h>
 #include <util/string_utils.h>
 
-#if USE_DISCORD
-#include <app/discord.h>
-#endif
-
 #ifdef USE_GDBSTUB
 #include <gdbstub/functions.h>
 #endif
@@ -171,12 +167,6 @@ bool init(HostState &state, Config &cfg, const Root &root_paths) {
         return false;
     }
 
-#if USE_DISCORD
-    if (discordrpc::init() && cfg.discord_rich_presence) {
-        discordrpc::update_presence();
-    }
-#endif
-
     state.kernel.start_tick = { rtc_base_ticks() };
     state.kernel.base_tick = { rtc_base_ticks() };
 
@@ -213,10 +203,6 @@ void destroy(HostState &host, ImGui_State *imgui) {
     if (host.renderer->current_backend == renderer::Backend::Vulkan) {
         renderer::vulkan::close(host.renderer);
     }
-#endif
-
-#ifdef USE_DISCORD
-    discordrpc::shutdown();
 #endif
 
 #ifdef USE_GDBSTUB
