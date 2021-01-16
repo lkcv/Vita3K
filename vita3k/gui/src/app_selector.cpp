@@ -1,5 +1,5 @@
 // Vita3K emulator project
-// Copyright (C) 2020 Vita3K team
+// Copyright (C) 2021 Vita3K team
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -107,13 +107,13 @@ void pre_run_app(GuiState &gui, HostState &host, const std::string &title_id) {
         init_app_background(gui, host, title_id);
 
         if (title_id == "NPXS10008") {
-            get_trophy_np_com_id_list(gui, host);
+            init_trophy_collection(gui, host);
             gui.live_area.trophy_collection = true;
         } else if (title_id == "NPXS10015") {
-            get_themes_list(gui, host);
+            init_themes(gui, host);
             gui.live_area.theme_background = true;
         } else {
-            get_contents_size(gui, host);
+            init_content_manager(gui, host);
             gui.live_area.content_manager = true;
         }
     }
@@ -132,7 +132,7 @@ void draw_app_selector(GuiState &gui, HostState &host) {
     const auto MENUBAR_HEIGHT = 32.f * scal.y;
     const auto MENUBAR_BG_HEIGHT = !gui.live_area.information_bar ? 22.f : 32.f * scal.y;
 
-    const auto is_background = (host.cfg.use_theme_background && !gui.theme_backgrounds.empty()) || !gui.user_backgrounds.empty();
+    const auto is_background = (gui.users[host.io.user_id].use_theme_bg && !gui.theme_backgrounds.empty()) || !gui.user_backgrounds.empty();
 
     ImGui::SetNextWindowPos(ImVec2(0, MENUBAR_HEIGHT), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(display_size.x, display_size.y - MENUBAR_HEIGHT), ImGuiCond_Always);
@@ -167,7 +167,7 @@ void draw_app_selector(GuiState &gui, HostState &host) {
         while (last_time["home"] + host.cfg.delay_background < current_time()) {
             last_time["home"] += host.cfg.delay_background;
 
-            if (host.cfg.use_theme_background) {
+            if (gui.users[host.io.user_id].use_theme_bg) {
                 if (gui.current_theme_bg < uint64_t(gui.theme_backgrounds.size() - 1))
                     ++gui.current_theme_bg;
                 else
@@ -184,7 +184,7 @@ void draw_app_selector(GuiState &gui, HostState &host) {
     }
 
     if (is_background)
-        ImGui::GetBackgroundDrawList()->AddImage((host.cfg.use_theme_background && !gui.theme_backgrounds.empty()) ? gui.theme_backgrounds[gui.current_theme_bg] : gui.user_backgrounds[host.cfg.user_backgrounds[gui.current_user_bg]],
+        ImGui::GetBackgroundDrawList()->AddImage((gui.users[host.io.user_id].use_theme_bg && !gui.theme_backgrounds.empty()) ? gui.theme_backgrounds[gui.current_theme_bg] : gui.user_backgrounds[gui.users[host.io.user_id].backgrounds[gui.current_user_bg]],
             ImVec2(0.f, MENUBAR_BG_HEIGHT), display_size);
     else
         ImGui::GetBackgroundDrawList()->AddRectFilled(ImVec2(0.f, MENUBAR_BG_HEIGHT), display_size, IM_COL32(11.f, 90.f, 252.f, 160.f), 0.f, ImDrawCornerFlags_All);
@@ -401,14 +401,6 @@ void draw_app_selector(GuiState &gui, HostState &host) {
                 bool selected = false;
                 if (!gui.app_search_bar.PassFilter(app.title.c_str()) && !gui.app_search_bar.PassFilter(app.title_id.c_str()))
                     continue;
-                if (app.title_id.find("NPXS") == std::string::npos) {
-                    if (!fs::exists(fs::path(host.pref_path) / "ux0/app" / app.title_id)) {
-                        host.app_title = app.title;
-                        host.app_title_id = app.title_id;
-                        LOG_ERROR("Application not found: {} [{}], deleting the entry for it.", app.title_id, app.title);
-                        delete_app(gui, host);
-                    }
-                }
                 const auto POS_ICON = ImGui::GetCursorPosY();
                 const auto GRID_INIT_POS = ImGui::GetCursorPosX() + (GRID_COLUMN_SIZE / 2.f) - 10.f;
                 if (apps_icon.find(app.title_id) != apps_icon.end()) {
@@ -423,7 +415,6 @@ void draw_app_selector(GuiState &gui, HostState &host) {
                     ImGui::SetCursorPosY(POS_ICON);
                 ImGui::PushID(app.title_id.c_str());
                 ImGui::Selectable("##icon", &selected, host.cfg.apps_list_grid ? ImGuiSelectableFlags_None : ImGuiSelectableFlags_SpanAllColumns, host.cfg.apps_list_grid ? GRID_ICON_SIZE : ImVec2(0.f, icon_size));
-                ImGui::PopID();
                 if (ImGui::IsItemHovered()) {
                     host.app_version = app.app_ver;
                     host.app_short_title = app.stitle;
@@ -432,10 +423,11 @@ void draw_app_selector(GuiState &gui, HostState &host) {
                 }
                 if (host.app_title_id == app.title_id)
                     draw_app_context_menu(gui, host);
+                ImGui::PopID();
                 if (!host.cfg.apps_list_grid) {
                     ImGui::NextColumn();
                     ImGui::PushStyleVar(ImGuiStyleVar_SelectableTextAlign, ImVec2(0.f, 0.5f));
-                    ImGui::PushStyleColor(ImGuiCol_Text, !gui.theme_backgrounds_font_color.empty() && host.cfg.use_theme_background ? gui.theme_backgrounds_font_color[gui.current_theme_bg] : GUI_COLOR_TEXT);
+                    ImGui::PushStyleColor(ImGuiCol_Text, !gui.theme_backgrounds_font_color.empty() && gui.users[host.io.user_id].use_theme_bg ? gui.theme_backgrounds_font_color[gui.current_theme_bg] : GUI_COLOR_TEXT);
                     ImGui::Selectable(app.title_id.c_str(), false, ImGuiSelectableFlags_None, ImVec2(0.f, icon_size));
                     ImGui::NextColumn();
                     ImGui::Selectable(app.app_ver.c_str(), false, ImGuiSelectableFlags_None, ImVec2(0.f, icon_size));
@@ -449,7 +441,7 @@ void draw_app_selector(GuiState &gui, HostState &host) {
                 } else {
                     ImGui::SetCursorPosX(GRID_INIT_POS - (ImGui::CalcTextSize(app.stitle.c_str(), 0, false, GRID_ICON_SIZE.x + (32.f * scal.x)).x / 2.f));
                     ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + (GRID_COLUMN_SIZE - (48.f * scal.x)));
-                    ImGui::TextColored(!gui.theme_backgrounds_font_color.empty() && host.cfg.use_theme_background ? gui.theme_backgrounds_font_color[gui.current_theme_bg] : GUI_COLOR_TEXT, "%s", app.stitle.c_str());
+                    ImGui::TextColored(!gui.theme_backgrounds_font_color.empty() && gui.users[host.io.user_id].use_theme_bg ? gui.theme_backgrounds_font_color[gui.current_theme_bg] : GUI_COLOR_TEXT, "%s", app.stitle.c_str());
                     ImGui::PopTextWrapPos();
                     ImGui::NextColumn();
                 }

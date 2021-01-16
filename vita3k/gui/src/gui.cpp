@@ -1,5 +1,5 @@
 // Vita3K emulator project
-// Copyright (C) 2020 Vita3K team
+// Copyright (C) 2021 Vita3K team
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -140,9 +140,12 @@ static void init_live_area_font(GuiState &gui, HostState &host) {
 
     // check existence of font file
     if (!fs::exists(font_path)) {
-        LOG_WARN("Could not find firmware font file at \"{}\", using defaut vita3k font.", font_path.string());
-        gui.live_area_font = gui.normal_font;
-        gui.live_area_font_large = io.Fonts->AddFontFromMemoryTTF(gui.font_data.data(), static_cast<int>(gui.font_data.size()), 124.f, &font_config, large_font_chars);
+        if (!gui.font_data.empty()) {
+            LOG_WARN("Could not find firmware font file at \"{}\", using defaut vita3k font, install firmware fonts package for fix this.", font_path.string());
+            gui.live_area_font = gui.normal_font;
+            gui.live_area_font_large = io.Fonts->AddFontFromMemoryTTF(gui.font_data.data(), static_cast<int>(gui.font_data.size()), 124.f, &font_config, large_font_chars);
+        } else
+            LOG_WARN("Could not find firmware font file at \"{}\", using defaut imgui font.", font_path.string());
         return;
     }
 
@@ -155,38 +158,6 @@ static void init_live_area_font(GuiState &gui, HostState &host) {
     // add it to imgui
     gui.live_area_font = io.Fonts->AddFontFromMemoryTTF(gui.live_area_font_data.data(), static_cast<int>(font_file_size), 19.2f, &font_config, io.Fonts->GetGlyphRangesJapanese());
     gui.live_area_font_large = io.Fonts->AddFontFromMemoryTTF(gui.live_area_font_data.data(), static_cast<int>(font_file_size), 124.f, &font_config, large_font_chars);
-}
-
-static void init_user_backgrounds(GuiState &gui, HostState &host) {
-    for (const auto &background : host.cfg.user_backgrounds) {
-        const std::wstring background_wstr = string_utils::utf_to_wide(background);
-
-        if (!fs::exists(fs::path(background_wstr))) {
-            LOG_WARN("Image doesn't exist: {}.", background);
-            continue;
-        }
-
-        int32_t width = 0;
-        int32_t height = 0;
-
-#ifdef _WIN32
-        FILE *f = _wfopen(background_wstr.c_str(), L"rb");
-#else
-        FILE *f = fopen(background.c_str(), "rb");
-#endif
-
-        stbi_uc *data = stbi_load_from_file(f, &width, &height, nullptr, STBI_rgb_alpha);
-
-        if (!data) {
-            LOG_ERROR("Invalid or corrupted image: {}.", background);
-            continue;
-        }
-
-        gui.user_backgrounds[background].init(gui.imgui_state.get(), data, width, height);
-        stbi_image_free(data);
-    }
-
-    gui.current_user_bg = 0;
 }
 
 void init_apps_icon(GuiState &gui, HostState &host, const std::vector<App> &apps_list) {
@@ -440,31 +411,29 @@ void init(GuiState &gui, HostState &host) {
     init_style();
     init_font(gui, host);
     init_live_area_font(gui, host);
+    init_users(gui, host);
 
     bool result = ImGui_ImplSdl_CreateDeviceObjects(gui.imgui_state.get());
     assert(result);
+
+    if (host.cfg.show_welcome)
+        gui.help_menu.welcome_dialog = true;
 
     get_modules_list(gui, host);
     get_user_apps_title(gui, host);
     get_sys_apps_title(gui, host);
     init_apps_icon(gui, host, gui.app_selector.user_apps);
 
-    if (!host.cfg.user_backgrounds.empty())
-        init_user_backgrounds(gui, host);
-
-    init_theme(gui, host, host.cfg.theme_content_id.empty() ? "default" : host.cfg.theme_content_id);
-
-    if (host.cfg.start_background == "image")
-        init_user_start_background(gui, host.cfg.user_start_background);
-    else
-        init_theme_start_background(gui, host, host.cfg.theme_content_id);
-
-    if (!host.cfg.run_title_id && !host.cfg.vpk_path) {
+    const auto cmd = host.cfg.run_title_id || host.cfg.vpk_path;
+    if (!gui.users.empty() && (gui.users.find(host.cfg.user_id) != gui.users.end()) && (cmd || host.cfg.auto_user_login)) {
+        init_user(gui, host, host.cfg.user_id);
+        if (!cmd && host.cfg.auto_user_login) {
+            gui.live_area.information_bar = true;
+            open_user(gui, host);
+        }
+    } else {
         gui.live_area.information_bar = true;
-        if (gui.start_background)
-            gui.live_area.start_screen = true;
-        else
-            gui.live_area.app_selector = true;
+        gui.live_area.user_management = true;
     }
 
     // Initialize trophy callback
@@ -514,6 +483,9 @@ void draw_live_area(GuiState &gui, HostState &host) {
     if (gui.live_area.content_manager)
         draw_content_manager(gui, host);
 
+    if (gui.live_area.user_management)
+        draw_user_management(gui, host);
+
     ImGui::PopFont();
 }
 
@@ -549,8 +521,6 @@ void draw_ui(GuiState &gui, HostState &host) {
     if (gui.debug_menu.disassembly_dialog)
         draw_disassembly_dialog(gui, host);
 
-    if (gui.configuration_menu.profiles_manager_dialog)
-        draw_profiles_manager_dialog(gui, host);
     if (gui.configuration_menu.settings_dialog)
         draw_settings_dialog(gui, host);
 
@@ -559,6 +529,8 @@ void draw_ui(GuiState &gui, HostState &host) {
 
     if (gui.help_menu.about_dialog)
         draw_about_dialog(gui);
+    if (gui.help_menu.welcome_dialog)
+        draw_welcome_dialog(gui, host);
 
     ImGui::PopFont();
 }

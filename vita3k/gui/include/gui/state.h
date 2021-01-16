@@ -1,5 +1,5 @@
 // Vita3K emulator project
-// Copyright (C) 2020 Vita3K team
+// Copyright (C) 2021 Vita3K team
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -80,6 +80,7 @@ struct LiveAreaState {
     bool theme_background = false;
     bool trophy_collection = false;
     bool start_screen = false;
+    bool user_management = false;
 };
 
 struct FileMenuState {
@@ -103,7 +104,6 @@ struct DebugMenuState {
 };
 
 struct ConfigurationMenuState {
-    bool profiles_manager_dialog = false;
     bool settings_dialog = false;
 };
 
@@ -113,6 +113,7 @@ struct ControlMenuState {
 
 struct HelpMenuState {
     bool about_dialog = false;
+    bool welcome_dialog = false;
 };
 
 } // namespace gui
@@ -134,6 +135,17 @@ struct NoticeInfo {
     std::string msg;
 };
 
+struct User {
+    std::string id;
+    std::string name;
+    std::string avatar;
+    std::string theme_id;
+    bool use_theme_bg;
+    std::string start_type;
+    std::string start_path;
+    std::vector<std::string> backgrounds;
+};
+
 struct GuiState {
     std::unique_ptr<ImGui_State> imgui_state;
 
@@ -145,6 +157,9 @@ struct GuiState {
     gui::HelpMenuState help_menu;
     gui::LiveAreaState live_area;
     gui::AppsSelector app_selector;
+
+    std::map<std::string, User> users;
+    std::map<std::string, ImGui_Texture> users_avatar;
 
     std::string app_ver;
     bool content_reinstall_confirm = false;
@@ -158,8 +173,6 @@ struct GuiState {
     char disassembly_address[9] = "00000000";
     char disassembly_count[5] = "100";
     std::vector<std::string> disassembly;
-
-    std::string online_id;
 
     bool is_capturing_keys = false;
     int old_captured_key = 0;
@@ -190,7 +203,7 @@ struct GuiState {
     std::uint64_t current_user_bg;
     std::map<std::string, ImGui_Texture> user_backgrounds;
 
-    std::map<std::string, std::map<std::string, ImGui_Texture>> trophy_np_com_id_list;
+    std::map<std::string, std::map<std::string, ImGui_Texture>> trophy_np_com_id_list_icons;
     std::map<std::string, ImGui_Texture> trophy_list;
 
     ImGui_Texture start_background;
