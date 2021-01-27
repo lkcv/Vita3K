@@ -49,14 +49,6 @@ static const char OS_PREFIX[] = "open ";
 static const char OS_PREFIX[] = "xdg-open ";
 #endif
 
-static const char *LIST_SYS_LANG[] = {
-    "Japanese", "American English", "French", "Spanish", "German", "Italian", "Dutch", "Portugal Portuguese",
-    "Russian", "Korean", "Traditional Chinese", "Simplified Chinese", "Finnish", "Swedish",
-    "Danish", "Norwegian", "Polish", "Brazil Portuguese", "British English", "Turkish"
-};
-
-constexpr int SYS_LANG_COUNT = IM_ARRAYSIZE(LIST_SYS_LANG);
-
 static bool change_pref_location(const std::string &input_path, const std::string &current_path) {
     if (fs::path(input_path).has_extension())
         return false;
@@ -92,7 +84,9 @@ static void change_emulator_path(GuiState &gui, HostState &host) {
         // TODO: Move app old to new path
         get_modules_list(gui, host);
         refresh_app_list(gui, host);
+        get_sys_apps_title(gui, host);
         init_users(gui, host);
+        gui.configuration_menu.settings_dialog = false;
         gui.live_area.app_selector = false;
         gui.live_area.user_management = true;
         LOG_INFO("Successfully moved Vita3K path to: {}", string_utils::wide_to_utf(host.pref_path));
@@ -132,6 +126,10 @@ void draw_settings_dialog(GuiState &gui, HostState &host) {
     if (ImGui::BeginTabItem("Core")) {
         ImGui::PopStyleColor();
         if (!gui.modules.empty()) {
+            ImGui::Spacing();
+            ImGui::Checkbox("Experimental: LLE libkernel & driver_us", &host.cfg.lle_kernel);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Enable this for using libkernel and driver_us module (experimental).");
             ImGui::Spacing();
             ImGui::TextColored(GUI_COLOR_TEXT_TITLE, "Module Mode");
             if (ImGui::IsItemHovered())
@@ -206,10 +204,6 @@ void draw_settings_dialog(GuiState &gui, HostState &host) {
     ImGui::PushStyleColor(ImGuiCol_Text, GUI_COLOR_TEXT_MENUBAR);
     if (ImGui::BeginTabItem("System")) {
         ImGui::PopStyleColor();
-        ImGui::Combo("Console Language", &host.cfg.sys_lang, LIST_SYS_LANG, SYS_LANG_COUNT, 6);
-        if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Select your language. \nNote that some applications might not have your language.");
-        ImGui::Spacing();
         ImGui::TextColored(GUI_COLOR_TEXT, "Enter Button Assignment \nSelect your 'Enter' Button.");
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("This is the button that is used as 'Confirm' in applications dialogs. \nSome applications don't use this and get default confirmation button.");
@@ -228,11 +222,10 @@ void draw_settings_dialog(GuiState &gui, HostState &host) {
     if (ImGui::BeginTabItem("Emulator")) {
         ImGui::PopStyleColor();
         ImGui::Spacing();
-        ImGui::Combo("Log Level", &host.cfg.log_level, "Trace\0Debug\0Info\0Warning\0Error\0Critical\0Off\0");
+        if (ImGui::Combo("Log Level", &host.cfg.log_level, "Trace\0Debug\0Info\0Warning\0Error\0Critical\0Off\0"))
+            logging::set_level(static_cast<spdlog::level::level_enum>(host.cfg.log_level));
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Select your preferred log level.");
-        if (ImGui::Button("Apply Log Level"))
-            logging::set_level(static_cast<spdlog::level::level_enum>(host.cfg.log_level));
         ImGui::Spacing();
         ImGui::Checkbox("Archive Log", &host.cfg.archive_log);
         if (ImGui::IsItemHovered())
@@ -261,7 +254,7 @@ void draw_settings_dialog(GuiState &gui, HostState &host) {
         if (ImGui::Button("Change Emulator Path"))
             change_emulator_path(gui, host);
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Change Vita3K emulator path like wanted.\nNeed move folder old to new manualy.");
+            ImGui::SetTooltip("Change Vita3K emulator path like wanted.\nNeed move folder old to new manually.");
         if (host.cfg.pref_path != host.default_path) {
             ImGui::SameLine();
             if (ImGui::Button("Reset Path Emulator")) {
@@ -278,7 +271,7 @@ void draw_settings_dialog(GuiState &gui, HostState &host) {
                 }
             }
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("Reset Vita3K emulator path to default.\nNeed move folder old to default manualy.");
+                ImGui::SetTooltip("Reset Vita3K emulator path to default.\nNeed move folder old to default manually.");
         }
         ImGui::EndTabItem();
     } else

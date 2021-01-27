@@ -132,7 +132,7 @@ void update_user(GuiState &gui, HostState &host, const std::string &user_id) {
     start_screen.append_attribute("type") = user.start_type.c_str();
     start_screen.append_child("path").append_child(pugi::node_pcdata).set_value(user.start_path.c_str());
 
-    // Save brackgrounds path
+    // Save backgrounds path
     auto bg_path = user_child.append_child("backgrounds");
     for (const auto &bg : user.backgrounds)
         bg_path.append_child("background").append_child(pugi::node_pcdata).set_value(bg.c_str());
@@ -318,6 +318,8 @@ void draw_user_management(GuiState &gui, HostState &host) {
             const auto calc_del_text = (AVATAR_SIZE.x / 2.f) - (ImGui::CalcTextSize("Delete User").x / 2.f);
             ImGui::SetCursorPos(ImVec2(DELETE_USER_POS + calc_del_text, AVATAR_POS.y + AVATAR_SIZE.y + (5.f * SCAL.y)));
             ImGui::TextColored(GUI_COLOR_TEXT, "Delete User");
+        } else {
+            ImGui::PopStyleVar();
         }
     } else if ((menu == "create") || (menu == "edit")) {
         title = menu == "create" ? "Create User" : "Edit User";
@@ -419,7 +421,7 @@ void draw_user_management(GuiState &gui, HostState &host) {
                 ImGui::SetCursorPos(ImVec2(194.f * SCAL.x, 148.f * SCAL.y));
                 ImGui::TextColored(GUI_COLOR_TEXT, "%s", gui.users[user_id].name.c_str());
                 ImGui::SetCursorPos(ImVec2(148.f * SCAL.x, 194.f * SCAL.y));
-                ImGui::TextWrapped("If you delete the user, that user's saved data, trophis will be deleted.");
+                ImGui::TextWrapped("If you delete the user, that user's saved data, trophies will be deleted.");
                 ImGui::SetWindowFontScale(1.f);
                 ImGui::SetCursorPos(BUTTON_POS);
                 if (ImGui::Button("Delete", BUTTON_SIZE))

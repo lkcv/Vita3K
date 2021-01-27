@@ -27,6 +27,7 @@
 #include <kernel/functions.h>
 #include <module/load_module.h>
 #include <nids/functions.h>
+#include <util/arm.h>
 #include <util/find.h>
 #include <util/lock_and_find.h>
 #include <util/log.h>
@@ -144,6 +145,14 @@ void call_import(HostState &host, CPUState &cpu, uint32_t nid, SceUID thread_id)
                 host.missing_nids.insert(nid);
         }
     } else {
+        auto pc = read_pc(cpu);
+
+        uint32_t *const stub = Ptr<uint32_t>(Address(pc)).get(host.mem);
+
+        stub[0] = encode_arm_inst(INSTRUCTION_MOVW, (uint16_t)export_pc, 12);
+        stub[1] = encode_arm_inst(INSTRUCTION_MOVT, (uint16_t)(export_pc >> 16), 12);
+        stub[2] = encode_arm_inst(INSTRUCTION_BRANCH, 0, 12);
+
         // LLE - directly run ARM code imported from some loaded module
         if (is_returning(cpu)) {
             LOG_TRACE("[LLE] TID: {:<3} FUNC: {} returned {}", thread_id, import_name(nid), log_hex(read_reg(cpu, 0)));
@@ -151,7 +160,6 @@ void call_import(HostState &host, CPUState &cpu, uint32_t nid, SceUID thread_id)
         }
 
         const std::unordered_set<uint32_t> lle_nid_blacklist = {};
-        auto pc = read_pc(cpu);
         log_import_call('L', nid, thread_id, lle_nid_blacklist, pc);
         const ThreadStatePtr thread = lock_and_find(thread_id, host.kernel.threads, host.kernel.mutex);
         const std::lock_guard<std::mutex> lock(thread->mutex);

@@ -41,6 +41,7 @@
     code(bool, "disable-ngs", true, disable_ngs)                                                        \
     code(int, "sys-button", static_cast<int>(SCE_SYSTEM_PARAM_ENTER_BUTTON_CROSS), sys_button)          \
     code(int, "sys-lang", static_cast<int>(SCE_SYSTEM_PARAM_LANG_ENGLISH_US), sys_lang)                 \
+    code(bool, "lle-kernel", false, lle_kernel)                                                         \
     code(bool, "auto-lle", false, auto_lle)                                                             \
     code(int, "delay-background", 4, delay_background)                                                  \
     code(int, "delay-start", 10, delay_start)                                                           \
@@ -55,35 +56,35 @@
     code(bool, "use-ubo", false, use_ubo)                                                               \
     code(bool, "performance-overlay", false, performance_overlay)                                       \
     code(std::string, "backend-renderer", "OpenGL", backend_renderer)                                   \
-    code(int, "keyboard-button-select", 229, keyboard_button_select)									\
-    code(int, "keyboard-button-start", 40, keyboard_button_start)										\
-    code(int, "keyboard-button-up", 82, keyboard_button_up)												\
-    code(int, "keyboard-button-right", 79, keyboard_button_right)										\
-    code(int, "keyboard-button-down", 81, keyboard_button_down)											\
-    code(int, "keyboard-button-left", 80, keyboard_button_left)											\
-    code(int, "keyboard-button-l1", 20, keyboard_button_l1)												\
-    code(int, "keyboard-button-r1", 8, keyboard_button_r1)												\
-    code(int, "keyboard-button-l2", 24, keyboard_button_l2)												\
-    code(int, "keyboard-button-r2", 27, keyboard_button_r2)												\
-    code(int, "keyboard-button-l3", 9, keyboard_button_l3)												\
-    code(int, "keyboard-button-r3", 11, keyboard_button_r3)												\
-    code(int, "keyboard-button-triangle", 25, keyboard_button_triangle)									\
-    code(int, "keyboard-button-circle", 6, keyboard_button_circle)										\
-    code(int, "keyboard-button-cross", 27, keyboard_button_cross)										\
-    code(int, "keyboard-button-square", 29, keyboard_button_square)										\
-    code(int, "keyboard-leftstick-left", 4, keyboard_leftstick_left)									\
-    code(int, "keyboard-leftstick-right", 7, keyboard_leftstick_right)									\
-    code(int, "keyboard-leftstick-up", 26, keyboard_leftstick_up)										\
-    code(int, "keyboard-leftstick-down", 22, keyboard_leftstick_down)									\
-    code(int, "keyboard-rightstick-left", 13, keyboard_rightstick_left)									\
-    code(int, "keyboard-rightstick-right", 15, keyboard_rightstick_right)								\
-    code(int, "keyboard-rightstick-up", 12, keyboard_rightstick_up)										\
-    code(int, "keyboard-rightstick-down", 14, keyboard_rightstick_down)									\
-    code(int, "keyboard-button-psbutton", 19, keyboard_button_psbutton)									\
-    code(std::string, "user-id", std::string{}, user_id)												\
-    code(bool, "user-auto-connect", false, auto_user_login)												\
-    code(bool, "dump-textures", false, dump_textures)													\
-    code(bool, "show_welcome", true, show_welcome)
+    code(int, "keyboard-button-select", 229, keyboard_button_select)                                    \
+    code(int, "keyboard-button-start", 40, keyboard_button_start)                                       \
+    code(int, "keyboard-button-up", 82, keyboard_button_up)                                             \
+    code(int, "keyboard-button-right", 79, keyboard_button_right)                                       \
+    code(int, "keyboard-button-down", 81, keyboard_button_down)                                         \
+    code(int, "keyboard-button-left", 80, keyboard_button_left)                                         \
+    code(int, "keyboard-button-l1", 20, keyboard_button_l1)                                             \
+    code(int, "keyboard-button-r1", 8, keyboard_button_r1)                                              \
+    code(int, "keyboard-button-l2", 24, keyboard_button_l2)                                             \
+    code(int, "keyboard-button-r2", 27, keyboard_button_r2)                                             \
+    code(int, "keyboard-button-l3", 9, keyboard_button_l3)                                              \
+    code(int, "keyboard-button-r3", 11, keyboard_button_r3)                                             \
+    code(int, "keyboard-button-triangle", 25, keyboard_button_triangle)                                 \
+    code(int, "keyboard-button-circle", 6, keyboard_button_circle)                                      \
+    code(int, "keyboard-button-cross", 27, keyboard_button_cross)                                       \
+    code(int, "keyboard-button-square", 29, keyboard_button_square)                                     \
+    code(int, "keyboard-leftstick-left", 4, keyboard_leftstick_left)                                    \
+    code(int, "keyboard-leftstick-right", 7, keyboard_leftstick_right)                                  \
+    code(int, "keyboard-leftstick-up", 26, keyboard_leftstick_up)                                       \
+    code(int, "keyboard-leftstick-down", 22, keyboard_leftstick_down)                                   \
+    code(int, "keyboard-rightstick-left", 13, keyboard_rightstick_left)                                 \
+    code(int, "keyboard-rightstick-right", 15, keyboard_rightstick_right)                               \
+    code(int, "keyboard-rightstick-up", 12, keyboard_rightstick_up)                                     \
+    code(int, "keyboard-rightstick-down", 14, keyboard_rightstick_down)                                 \
+    code(int, "keyboard-button-psbutton", 19, keyboard_button_psbutton)                                 \
+    code(std::string, "user-id", std::string{}, user_id)                                                \
+    code(bool, "user-auto-connect", false, auto_user_login)                                             \
+    code(bool, "dump-textures", false, dump_textures)                                                   \
+    code(bool, "show-welcome", true, show_welcome)
 
 
 // Vector members produced in the config file
