@@ -72,27 +72,54 @@ void init_users(GuiState &gui, HostState &host) {
                 const auto user_child = user_xml.child("user");
 
                 // Load user settings
-                const auto user_id = user_child.attribute("id").as_string();
+                std::string user_id;
+                if (!user_child.attribute("id").empty())
+                    user_id = user_child.attribute("id").as_string();
+                else
+                    user_id = path.path().stem().string();
+
                 auto &user = gui.users[user_id];
                 user.id = user_id;
                 if (!user_child.attribute("name").empty())
                     user.name = user_child.attribute("name").as_string();
-                if (!user_child.child("avatar").text().empty()) {
+                else
+                    user.name = "vita3K";
+
+                if (!user_child.attribute("date-format").empty())
+                    user.date_format = DateFormat(user_child.attribute("date-format").as_int());
+                else
+                    user.date_format = DateFormat::MM_DD_YYYY;
+
+                if (!user_child.attribute("clock-12-hour").empty())
+                    user.clock_12_hour = user_child.attribute("clock-12-hour").as_bool();
+                else
+                    user.clock_12_hour = true;
+
+                if (!user_child.child("avatar").text().empty())
                     user.avatar = user_child.child("avatar").text().as_string();
-                    init_avatar(gui, host, user.id, user.avatar);
-                }
+                else
+                    user.avatar = "default";
+                init_avatar(gui, host, user.id, user.avatar);
 
                 // Load theme settings
                 auto theme = user_child.child("theme");
                 if (!theme.attribute("use-background").empty())
                     user.use_theme_bg = theme.attribute("use-background").as_bool();
+                else
+                    user.use_theme_bg = true;
+
                 if (!theme.child("content-id").text().empty())
                     user.theme_id = theme.child("content-id").text().as_string();
+                else
+                    user.theme_id = "default";
 
                 // Load start screen settings
                 auto start = user_child.child("start-screen");
                 if (!start.attribute("type").empty())
                     user.start_type = start.attribute("type").as_string();
+                else
+                    user.start_type = "default";
+
                 if (!start.child("path").text().empty())
                     user.start_path = start.child("path").text().as_string();
 
@@ -104,7 +131,7 @@ void init_users(GuiState &gui, HostState &host) {
     }
 }
 
-void update_user(GuiState &gui, HostState &host, const std::string &user_id) {
+void save_user(GuiState &gui, HostState &host, const std::string &user_id) {
     const auto user_path{ fs::path(host.pref_path) / "ux0/user" / user_id };
     if (!fs::exists(user_path))
         fs::create_directory(user_path);
@@ -120,6 +147,8 @@ void update_user(GuiState &gui, HostState &host, const std::string &user_id) {
     auto user_child = user_xml.append_child("user");
     user_child.append_attribute("id") = user.id.c_str();
     user_child.append_attribute("name") = user.name.c_str();
+    user_child.append_attribute("date-format") = user.date_format;
+    user_child.append_attribute("clock-12-hour") = user.clock_12_hour;
     user_child.append_child("avatar").append_child(pugi::node_pcdata).set_value(user.avatar.c_str());
 
     // Save theme settings
@@ -234,6 +263,10 @@ void draw_user_management(GuiState &gui, HostState &host) {
     const auto DELETE_USER_POS = AVATAR_POS.x + (SPACE_AVATAR * (gui.users.size()));
     const auto BUTTON_SIZE = ImVec2(220 * SCAL.x, 36 * SCAL.y);
     const auto BUTTON_POS = ImVec2((SIZE_USER.x / 2.f) - (BUTTON_SIZE.x / 2.f), 314.f * SCAL.y);
+    const auto is_lang = !gui.lang.user_management.empty();
+    const auto NEW_USER_STR = is_lang ? gui.lang.user_management["create_user"] : "Create User";
+    const auto EDIT_USER_STR = is_lang ? gui.lang.user_management["edit_user"] : "Edit User";
+    const auto DELETE_USER_STR = is_lang ? gui.lang.user_management["delete_user"] : "Delete User";
 
     if (menu.empty()) {
         // Users list
@@ -252,13 +285,15 @@ void draw_user_management(GuiState &gui, HostState &host) {
             }
             user_id = fmt::format("{:0>2d}", id);
             auto i = 1;
+            const auto user = is_lang ? gui.lang.user_management["user"] : "User";
             for (i; i < gui.users.size(); i++) {
-                const auto name = "User" + fmt::format("{}", i);
-                if (get_users_index(gui, name) == gui.users.end())
+                if (get_users_index(gui, user + std::to_string(i)) == gui.users.end())
                     break;
             }
             temp.id = user_id;
-            temp.name = "User" + fmt::format("{}", i);
+            temp.name = user + std::to_string(i);
+            temp.date_format = DateFormat::MM_DD_YYYY;
+            temp.clock_12_hour = true;
             temp.avatar = "default";
             temp.theme_id = "default";
             temp.use_theme_bg = true;
@@ -266,15 +301,15 @@ void draw_user_management(GuiState &gui, HostState &host) {
             init_avatar(gui, host, "temp", "default");
         }
         ImGui::SetWindowFontScale(0.9f);
-        const auto calc_text = (AVATAR_SIZE.x / 2.f) - (ImGui::CalcTextSize("New User").x / 2.f);
+        const auto calc_text = (AVATAR_SIZE.x / 2.f) - (ImGui::CalcTextSize(NEW_USER_STR.c_str()).x / 2.f);
         ImGui::SetCursorPos(ImVec2(NEW_USER_POS + calc_text, AVATAR_POS.y + AVATAR_SIZE.y + (5.f * SCAL.y)));
-        ImGui::TextColored(GUI_COLOR_TEXT, "New User");
+        ImGui::TextColored(GUI_COLOR_TEXT, NEW_USER_STR.c_str());
         ImGui::SetCursorPos(AVATAR_POS);
         for (const auto &user : gui.users) {
             ImGui::PushID(user.first.c_str());
             const auto USER_POS = ImGui::GetCursorPos();
             ImGui::SetCursorPos(ImVec2(USER_POS.x, USER_POS.y - BUTTON_SIZE.y));
-            if (ImGui::Button("Edit User", ImVec2(AVATAR_SIZE.x, BUTTON_SIZE.y))) {
+            if (ImGui::Button(EDIT_USER_STR.c_str(), ImVec2(AVATAR_SIZE.x, BUTTON_SIZE.y))) {
                 user_id = user.first;
                 gui.users_avatar["temp"] = gui.users_avatar[user.first];
                 temp = gui.users[user.first];
@@ -315,14 +350,14 @@ void draw_user_management(GuiState &gui, HostState &host) {
                 menu = "delete";
             ImGui::PopStyleVar();
             ImGui::SetWindowFontScale(0.9f);
-            const auto calc_del_text = (AVATAR_SIZE.x / 2.f) - (ImGui::CalcTextSize("Delete User").x / 2.f);
+            const auto calc_del_text = (AVATAR_SIZE.x / 2.f) - (ImGui::CalcTextSize(DELETE_USER_STR.c_str()).x / 2.f);
             ImGui::SetCursorPos(ImVec2(DELETE_USER_POS + calc_del_text, AVATAR_POS.y + AVATAR_SIZE.y + (5.f * SCAL.y)));
-            ImGui::TextColored(GUI_COLOR_TEXT, "Delete User");
+            ImGui::TextColored(GUI_COLOR_TEXT, DELETE_USER_STR.c_str());
         } else {
             ImGui::PopStyleVar();
         }
     } else if ((menu == "create") || (menu == "edit")) {
-        title = menu == "create" ? "Create User" : "Edit User";
+        title = menu == "create" ? NEW_USER_STR : EDIT_USER_STR;
         ImGui::SetWindowFontScale(0.6f);
         ImGui::SetCursorPos(ImVec2(AVATAR_POS.x, AVATAR_POS.y - BUTTON_SIZE.y));
         if ((temp.avatar != "default") && ImGui::Button("Reset Avatar", ImVec2(AVATAR_SIZE.x, BUTTON_SIZE.y))) {
@@ -334,7 +369,7 @@ void draw_user_management(GuiState &gui, HostState &host) {
             ImGui::Image(gui.users_avatar["temp"], AVATAR_SIZE);
         }
         ImGui::SetCursorPos(ImVec2(AVATAR_POS.x, AVATAR_POS.y + AVATAR_SIZE.y));
-        if (ImGui::Button("Change Avatar", ImVec2(AVATAR_SIZE.x, BUTTON_SIZE.y))) {
+        if (ImGui::Button(is_lang ? gui.lang.user_management["change_avatar"].c_str() : "Change Avatar", ImVec2(AVATAR_SIZE.x, BUTTON_SIZE.y))) {
             nfdchar_t *avatar_path;
             nfdresult_t result = NFD_OpenDialog("bmp,gif,jpg,png,tif", nullptr, &avatar_path);
 
@@ -345,7 +380,7 @@ void draw_user_management(GuiState &gui, HostState &host) {
         const auto INPUT_NAME_SIZE = 330.f * SCAL.x;
         const auto INPUT_NAME_POS = ImVec2((SIZE_USER.x / 2.f) - (INPUT_NAME_SIZE / 2.f), 240.f * SCAL.y);
         ImGui::SetCursorPos(ImVec2(INPUT_NAME_POS.x, INPUT_NAME_POS.y - (30.f * SCAL.y)));
-        ImGui::TextColored(GUI_COLOR_TEXT, "Name");
+        ImGui::TextColored(GUI_COLOR_TEXT, is_lang ? gui.lang.user_management["name"].c_str() : "Name");
         ImGui::SetCursorPos(INPUT_NAME_POS);
         ImGui::PushItemWidth(INPUT_NAME_SIZE);
         ImGui::InputText("##user_name", &temp.name);
@@ -358,10 +393,11 @@ void draw_user_management(GuiState &gui, HostState &host) {
         }
         ImGui::SetCursorPos(BUTTON_POS);
         ImGui::PushStyleVar(ImGuiStyleVar_SelectableTextAlign, ImVec2(0.5f, 0.5f));
-        if (!temp.name.empty() && check_free_name ? ImGui::Button("Confirm", BUTTON_SIZE) : ImGui::Selectable("Confirm", false, ImGuiSelectableFlags_Disabled, BUTTON_SIZE)) {
+        const auto confirm = is_lang ? gui.lang.user_management["confirm"] : "Confirm";
+        if (!temp.name.empty() && check_free_name ? ImGui::Button(confirm.c_str(), BUTTON_SIZE) : ImGui::Selectable(confirm.c_str(), false, ImGuiSelectableFlags_Disabled, BUTTON_SIZE)) {
             gui.users_avatar[user_id] = gui.users_avatar["temp"];
             gui.users[user_id] = temp;
-            update_user(gui, host, user_id);
+            save_user(gui, host, user_id);
             if (menu == "create")
                 menu = "confirm";
             else {
@@ -387,7 +423,7 @@ void draw_user_management(GuiState &gui, HostState &host) {
             menu.clear();
         }
     } else if (menu == "delete") {
-        title = "Delete User";
+        title = DELETE_USER_STR;
         if (user_id.empty()) {
             ImGui::SetWindowFontScale(1.f * SCAL.x);
             ImGui::SetCursorPos(ImVec2((SIZE_USER.x / 2.f) - (ImGui::CalcTextSize("Select the user you want delete.").x / 2.f), 5.f * SCAL.y));

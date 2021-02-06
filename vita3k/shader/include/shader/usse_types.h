@@ -3,6 +3,7 @@
 #include <shader/types_imm.h>
 
 #include <array>
+#include <cassert>
 #include <functional>
 #include <string>
 #include <unordered_map>
@@ -29,6 +30,17 @@ enum class ExtPredicate : uint8_t {
     PN
 };
 
+enum class ExtVecPredicate : uint8_t {
+    NONE,
+    P0,
+    P1,
+    P2,
+    NEGP0,
+    NEGP1,
+    NEGP2,
+    PN
+};
+
 enum class ShortPredicate : uint8_t {
     NONE,
     P0,
@@ -46,6 +58,29 @@ inline ExtPredicate short_predicate_to_ext(ShortPredicate pred) {
         return ExtPredicate::P1;
     case ShortPredicate::NEGP0:
         return ExtPredicate::NEGP0;
+    default:
+        return ExtPredicate::NONE;
+    }
+}
+
+inline ExtPredicate ext_vec_predicate_to_ext(ExtVecPredicate pred) {
+    switch (pred) {
+    case ExtVecPredicate::NONE:
+        return ExtPredicate::NONE;
+    case ExtVecPredicate::P0:
+        return ExtPredicate::P0;
+    case ExtVecPredicate::P1:
+        return ExtPredicate::P1;
+    case ExtVecPredicate::P2:
+        return ExtPredicate::P2;
+    case ExtVecPredicate::NEGP0:
+        return ExtPredicate::NEGP0;
+    case ExtVecPredicate::NEGP1:
+        return ExtPredicate::NEGP1;
+    case ExtVecPredicate::NEGP2:
+        // TODO
+        assert(false);
+        break;
     default:
         return ExtPredicate::NONE;
     }
@@ -250,8 +285,10 @@ inline bool is_float_data_type(const DataType dtype) {
 enum InstructionFlags {
 };
 
+using OperandNum = std::uint16_t;
+
 struct Operand {
-    Imm6 num = 0b111111;
+    OperandNum num = 0xFFFF;
     RegisterBank bank = RegisterBank::INVALID;
     RegisterFlags flags{};
     Swizzle4 swizzle = SWIZZLE_CHANNEL_4_UNDEFINED;

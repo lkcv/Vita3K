@@ -73,7 +73,7 @@ boost::optional<const USSEMatcher<V> &> DecodeUSSE(uint64_t instruction) {
         // Vector operations except for MAD (F32)
         /*
                                          00001 = opcode1
-                                              ppp = pred (3 bits, ExtPredicate)
+                                              ppp = pred (3 bits, ExtVecPredicate)
                                                  s = skipinv (1 bit, bool)
                                                   rr = src1_swiz_10_11 (2 bits)
                                                     y = syncstart (1 bit, bool)
@@ -100,7 +100,7 @@ boost::optional<const USSEMatcher<V> &> DecodeUSSE(uint64_t instruction) {
         // Vector operations except for MAD (F16)
         /*
                                          00010 = opcode1
-                                              ppp = pred (3 bits, ExtPredicate)
+                                              ppp = pred (3 bits, ExtVecPredicate)
                                                  s = skipinv (1 bit, bool)
                                                   rr = src1_swiz_10_11 (2 bits)
                                                     y = syncstart (1 bit, bool)
@@ -127,66 +127,66 @@ boost::optional<const USSEMatcher<V> &> DecodeUSSE(uint64_t instruction) {
         // Vector multiply-add
         /*
                                    00011 = opcode1
-                                        ppp = pred (3 bits, ExtPredicate)
+                                        ppp = pred (3 bits, ExtVecPredicate)
                                            s = skipinv (1 bit)
                                             g = gpi1_swiz_ext (1 bit)
                                              1 = present_bit_1
                                               o = opcode2 (1 bit)
                                                d = dest_use_bank_ext (1 bit)
                                                 e = end (1 bit)
-                                                 r = src0_bank_ext (1 bit)
+                                                 r = src1_bank_ext (1 bit)
                                                   aa = repeat_mode (2 bits, RepeatMode)
                                                     i = gpi0_abs (1 bit)
                                                      tt = repeat_count (2 bits, RepeatCount)
                                                        n = nosched (1 bit, bool)
                                                         wwww = write_mask (4 bits)
-                                                            c = src0_neg (1 bit)
-                                                             b = src0_abs (1 bit)
+                                                            c = src1_neg (1 bit)
+                                                             b = src1_abs (1 bit)
                                                               f = gpi1_neg (1 bit)
                                                                h = gpi1_abs (1 bit)
                                                                 z = gpi0_swiz_ext (1 bit)
                                                                  kk = dest_bank (2 bits)
-                                                                   jj = src0_bank (2 bits)
+                                                                   jj = src1_bank (2 bits)
                                                                      ll = gpi0_n (2 bits)
                                                                        mmmmmm = dest_n (6 bits)
                                                                              qqqq = gpi0_swiz (4 bits)
                                                                                  uuuu = gpi1_swiz (4 bits)
                                                                                      vv = gpi1_n (2 bits)
                                                                                        x = gpi0_neg (1 bit)
-                                                                                        y = src0_swiz_ext (1 bit)
-                                                                                         AAAA = src0_swiz (4 bits)
-                                                                                             BBBBBB = src0_n (6 bits)
+                                                                                        y = src1_swiz_ext (1 bit)
+                                                                                         AAAA = src1_swiz (4 bits)
+                                                                                             BBBBBB = src1_n (6 bits)
         */
         INST(&V::vmad, "VMAD ()", "00011pppsg1oderaaittnwwwwcbfhzkkjjllmmmmmmqqqquuuuvvxyAAAABBBBBB"),
         // Vector Dot Product (single issue)
         /*
                                  00011 = opcode1
-                                      ppp = pred (3 bits, ExtPredicate)
+                                      ppp = pred (3 bits, ExtVecPredicate)
                                          s = skipinv (1 bit)
                                           c = clip_plane_enable (1 bit, bool)
                                            0 = present_bit_0
                                             o = opcode2 (1 bit)
                                              d = dest_use_bank_ext (1 bit)
                                               e = end (1 bit)
-                                               r = src0_bank_ext (1 bit)
+                                               r = src1_bank_ext (1 bit)
                                                 aa = repeat_mode (2 bits, RepeatMode)
                                                   g = gpi0_abs (1 bit)
                                                    tt = repeat_count (2 bits, RepeatCount)
                                                      n = nosched (1 bit, bool)
                                                       wwww = write_mask (4 bits)
-                                                          b = src0_neg (1 bit)
-                                                           f = src0_abs (1 bit)
+                                                          b = src1_neg (1 bit)
+                                                           f = src1_abs (1 bit)
                                                             lll = clip_plane_n (3 bits)
                                                                kk = dest_bank (2 bits)
-                                                                 hh = src0_bank (2 bits)
+                                                                 hh = src1_bank (2 bits)
                                                                    ii = gpi0_n (2 bits)
                                                                      jjjjjj = dest_n (6 bits)
                                                                            zzzz = gpi0_swiz (4 bits)
-                                                                               mmm = src0_swiz_w (3 bits)
-                                                                                  qqq = src0_swiz_z (3 bits)
-                                                                                     yyy = src0_swiz_y (3 bits)
-                                                                                        xxx = src0_swiz_x (3 bits)
-                                                                                           uuuuuu = src0_n (6 bits)
+                                                                               mmm = src1_swiz_w (3 bits)
+                                                                                  qqq = src1_swiz_z (3 bits)
+                                                                                     yyy = src1_swiz_y (3 bits)
+                                                                                        xxx = src1_swiz_x (3 bits)
+                                                                                           uuuuuu = src1_n (6 bits)
         */
         INST(&V::vdp, "VDP ()", "00011pppsc0oderaagttnwwwwbflllkkhhiijjjjjjzzzzmmmqqqyyyxxxuuuuuu"),
         // Dual issue instruction
@@ -443,12 +443,39 @@ boost::optional<const USSEMatcher<V> &> DecodeUSSE(uint64_t instruction) {
                                         ----------------------------------------------------------- = don't care
         */
         INST(&V::sop3, "SOP3 ()", "10010-----------------------------------------------------------"),
-        // 8-bit Integer multiply-add
+        // 8-bit integer Multiply and Add
         /*
-                                     10011 = opcode1
-                                          ----------------------------------------------------------- = don't care
+                                    10011 = opcode1
+                                          pp = pred (2 bits)
+                                            c = cmod1 (1 bit)
+                                            s = skipinv (1 bit)
+                                              n = nosched (1 bit)
+                                              ee = csel0 (2 bits)
+                                                d = dest_bank_ext (1 bit)
+                                                  a = end (1 bit)
+                                                  r = src1_bank_ext (1 bit)
+                                                    b = src2_bank_ext (1 bit)
+                                                    m = cmod2 (1 bit)
+                                                      ttt = repeat_count (3 bits)
+                                                        u = saturated (1 bit)
+                                                          o = cmod0 (1 bit)
+                                                          l = asel0 (1 bit)
+                                                            f = amod2 (1 bit)
+                                                            g = amod1 (1 bit)
+                                                              h = amod0 (1 bit)
+                                                              i = csel1 (1 bit)
+                                                                j = csel2 (1 bit)
+                                                                k = src0_neg (1 bit)
+                                                                  q = src0_bank (1 bit)
+                                                                  vv = dest_bank (2 bits)
+                                                                    ww = src1_bank (2 bits)
+                                                                      xx = src2_bank (2 bits)
+                                                                        yyyyyyy = dest_num (7 bits)
+                                                                                zzzzzzz = src0_num (7 bits)
+                                                                                      AAAAAAA = src1_num (7 bits)
+                                                                                              BBBBBBB = src2_num (7 bits)
         */
-        INST(&V::i8mad, "I8MAD ()", "10011-----------------------------------------------------------"),
+        INST(&V::i8mad, "I8MAD ()", "10011ppcsneedarbmtttuolfghijkqvvwwxxyyyyyyyzzzzzzzAAAAAAABBBBBBB"),
         // 16-bit Integer multiply-add
         /*
                                        10100 = opcode1

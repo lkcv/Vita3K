@@ -33,11 +33,13 @@ void get_app_info(GuiState &gui, HostState &host, const std::string &title_id) {
     gui.app_selector.app_info = {};
 
     if (fs::exists(APP_PATH) && !fs::is_empty(APP_PATH)) {
-        gui.app_selector.app_info.trophy = fs::exists(APP_PATH / "sce_sys/trophy") ? "Eligible" : "Ineligible";
+        const auto is_lang = !gui.lang.app_context.empty();
+        const auto eligible = is_lang ? gui.lang.app_context["eligible"] : "Eligible";
+        const auto ineligible = is_lang ? gui.lang.app_context["ineligible"] : "Ineligible";
+        gui.app_selector.app_info.trophy = fs::exists(APP_PATH / "sce_sys/trophy") ? eligible : ineligible;
 
         const auto last_writed = fs::last_write_time(APP_PATH);
-        const auto updated = std::localtime(&last_writed);
-        gui.app_selector.app_info.updated = fmt::format("{}/{}/{} {:0>2d}:{:0>2d}", updated->tm_mday, updated->tm_mon + 1, updated->tm_year + 1900, updated->tm_hour, updated->tm_min);
+        gui.app_selector.app_info.updated = *std::localtime(&last_writed);
     }
 }
 
@@ -261,9 +263,7 @@ void draw_content_manager(GuiState &gui, HostState &host) {
         const auto CALC_NAME = ImGui::CalcTextSize(get_app_index(gui, app_selected)->title.c_str(), nullptr, false, SIZE_INFO.x - SIZE_ICON_DETAIL.x).y / 2.f;
         ImGui::SetCursorPos(ImVec2((110.f * SCAL.x) + SIZE_ICON_DETAIL.x, (SIZE_ICON_DETAIL.y / 2.f) - CALC_NAME + (10.f * SCAL.y)));
         ImGui::PushTextWrapPos(SIZE_INFO.x);
-        ImGui::PushFont(get_font_format(gui, app_selected));
         ImGui::TextColored(GUI_COLOR_TEXT, "%s", get_app_index(gui, app_selected)->title.c_str());
-        ImGui::PopFont();
         ImGui::PopTextWrapPos();
     } else {
         const auto content_str = ImGui::CalcTextSize(title.c_str(), 0, false, SIZE_LIST.x);
@@ -281,9 +281,9 @@ void draw_content_manager(GuiState &gui, HostState &host) {
 
             // Free Space
             const auto scal_font = 19.2f / ImGui::GetFontSize();
-            ImGui::GetWindowDrawList()->AddText(gui.live_area_font, 19.2f * SCAL.x, ImVec2((display_size.x - ((ImGui::CalcTextSize("Free Space").x * scal_font)) * SCAL.x) - (15.f * SCAL.x), 42.f * SCAL.y),
+            ImGui::GetWindowDrawList()->AddText(gui.vita_font, 19.2f * SCAL.x, ImVec2((display_size.x - ((ImGui::CalcTextSize("Free Space").x * scal_font)) * SCAL.x) - (15.f * SCAL.x), 42.f * SCAL.y),
                 4294967295, "Free Space");
-            ImGui::GetWindowDrawList()->AddText(gui.live_area_font, 19.2f * SCAL.x, ImVec2((display_size.x - ((ImGui::CalcTextSize(space["free"].c_str()).x * scal_font)) * SCAL.x) - (15.f * SCAL.x), 68.f * SCAL.y),
+            ImGui::GetWindowDrawList()->AddText(gui.vita_font, 19.2f * SCAL.x, ImVec2((display_size.x - ((ImGui::CalcTextSize(space["free"].c_str()).x * scal_font)) * SCAL.x) - (15.f * SCAL.x), 68.f * SCAL.y),
                 4294967295, space["free"].c_str());
         }
         ImGui::SetCursorPosY(64.0f * SCAL.y);
@@ -421,9 +421,7 @@ void draw_content_manager(GuiState &gui, HostState &host) {
                     const auto Title_POS = ImGui::GetCursorPosY();
                     ImGui::SetWindowFontScale(1.1f);
                     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (4.f * SCAL.y));
-                    ImGui::PushFont(get_font_format(gui, app.title_id));
                     ImGui::TextColored(GUI_COLOR_TEXT, "%s", app.title.c_str());
-                    ImGui::PopFont();
                     ImGui::SetCursorPosY(Title_POS + (46.f * SCAL.y));
                     ImGui::SetWindowFontScale(0.8f);
                     ImGui::TextColored(GUI_COLOR_TEXT, "%s", get_unit_size(apps_size[app.title_id]).c_str());
@@ -471,9 +469,7 @@ void draw_content_manager(GuiState &gui, HostState &host) {
                     const auto Title_POS = ImGui::GetCursorPosY();
                     ImGui::SetWindowFontScale(1.1f);
                     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (4.f * SCAL.y));
-                    ImGui::PushFont(get_font_format(gui, save.title_id));
                     ImGui::TextColored(GUI_COLOR_TEXT, "%s", save.title.c_str());
-                    ImGui::PopFont();
                     ImGui::SetWindowFontScale(0.8f);
                     ImGui::SetCursorPosY(Title_POS + (46.f * SCAL.y));
                     ImGui::TextColored(GUI_COLOR_TEXT, "%s %s", save.date.c_str(), get_unit_size(save.size).c_str());
@@ -486,6 +482,7 @@ void draw_content_manager(GuiState &gui, HostState &host) {
             }
         } else if (menu == "info") {
             // Information
+            const auto app_index = get_app_index(gui, app_selected);
             ImGui::SetWindowFontScale(1.f);
             ImGui::TextColored(GUI_COLOR_TEXT, "Trophy Earning");
             ImGui::SameLine(280.f * SCAL.x);
@@ -497,7 +494,12 @@ void draw_content_manager(GuiState &gui, HostState &host) {
             ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (35.f * SCAL.y));
             ImGui::TextColored(GUI_COLOR_TEXT, "Updated");
             ImGui::SameLine(280.f * SCAL.x);
-            ImGui::TextColored(GUI_COLOR_TEXT, "%s", gui.app_selector.app_info.updated.c_str());
+            auto DATE_TIME = get_date_time(gui, host, gui.app_selector.app_info.updated);
+            ImGui::TextColored(GUI_COLOR_TEXT, "%s %s", DATE_TIME["date"].c_str(), DATE_TIME["clock"].c_str());
+            if (gui.users[host.io.user_id].clock_12_hour) {
+                ImGui::SameLine();
+                ImGui::TextColored(GUI_COLOR_TEXT, "%s", DATE_TIME["day-moment"].c_str());
+            }
             ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (35.f * SCAL.y));
             ImGui::TextColored(GUI_COLOR_TEXT, "Size");
             ImGui::SameLine(280.f * SCAL.x);
@@ -513,9 +515,7 @@ void draw_content_manager(GuiState &gui, HostState &host) {
                 ImGui::SetWindowFontScale(1.2f);
                 ImGui::TextColored(GUI_COLOR_TEXT, "+");
                 ImGui::SameLine(0, 30.f * SCAL.x);
-                ImGui::PushFont(get_font_format(gui, app_selected));
                 ImGui::TextColored(GUI_COLOR_TEXT, "%s", dlc.second.name.c_str());
-                ImGui::PopFont();
                 ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (35.f * SCAL.y));
                 ImGui::SetWindowFontScale(1.f);
                 ImGui::TextColored(GUI_COLOR_TEXT, "Updated");

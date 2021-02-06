@@ -10,4 +10,10 @@ add_library(
 
 target_include_directories(app PUBLIC include)
 target_link_libraries(app PUBLIC host)
+<<<<<<< HEAD
+=======
+if(USE_DISCORD_RICH_PRESENCE)
+  target_link_libraries(app PUBLIC discord-rpc)
+endif()
+>>>>>>> 986a4302a2b595ee8aa364da2388e368cbc79dbb
 target_link_libraries(app PRIVATE gui)

@@ -107,68 +107,84 @@ static void init_font(GuiState &gui, HostState &host) {
     ImGuiIO &io = ImGui::GetIO();
     gui.monospaced_font = io.Fonts->AddFontDefault();
 
-    // Set user font
-    const ImWchar *user_font;
-    const auto sys_lang = static_cast<SceSystemParamLang>(host.cfg.sys_lang);
-    switch (sys_lang) {
-    case SCE_SYSTEM_PARAM_LANG_JAPANESE: user_font = io.Fonts->GetGlyphRangesJapanese(); break;
-    case SCE_SYSTEM_PARAM_LANG_KOREAN: user_font = io.Fonts->GetGlyphRangesKorean(); break;
-    case SCE_SYSTEM_PARAM_LANG_CHINESE_T: user_font = io.Fonts->GetGlyphRangesChineseFull(); break;
-    case SCE_SYSTEM_PARAM_LANG_CHINESE_S: user_font = io.Fonts->GetGlyphRangesChineseSimplifiedCommon(); break;
-    default: user_font = io.Fonts->GetGlyphRangesCyrillic(); break;
-    }
-
-    // set up font paths
-    const auto default_font_path{ fs::path(host.base_path) / "data/fonts/mplus-1mn-bold.ttf" };
-    const auto fw_latin_font_path{ fs::path(host.pref_path) / "sa0/data/font/pvf/ltn0.pvf" };
-    const auto fw_jap_path{ fs::path(host.pref_path) / "sa0/data/font/pvf/jpn0.pvf" };
-
     // Set Large Font
+    static const ImWchar large_font_chars[] = { L'0', L'1', L'2', L'3', L'4', L'5', L'6', L'7', L'8', L'9', L':', L'A', L'M', L'P' };
+
+    // Set Fw font paths
+    const auto fw_font_path{ fs::path(host.pref_path) / "sa0/data/font/pvf" };
+    const auto latin_fw_font_path{ fw_font_path / "ltn0.pvf" };
+
+    // clang-format off
+    static const ImWchar latin_range[] = {
+        0x0400, 0x052F, // Cyrillic + Cyrillic Supplement
+        0x2DE0, 0x2DFF, // Cyrillic Extended-A
+        0xA640, 0xA69F, // Cyrillic Extended-B
+        0x2000, 0x206F, // General Punctuation
+        0x2100, 0x214F, // Letter type symbols
+        0,
+    };
+
+    static const ImWchar extra_range[] = {
+        0x2200, 0x22FF, // Math operators 
+        0x2150, 0x218F, // Numeral forms
+        0x2600, 0x26FF, // Miscellaneous symbols
+        0x4E00, 0x9FFF, // Unified ideograms CJC
+        0,
+    };
+
+    static const ImWchar korean_range[] = {
+        0x3131, 0x3163, // Korean alphabets
+        0xAC00, 0xD79D, // Korean characters
+        0,
+    };
+
+    static const ImWchar chinese_range[] = {
+        0x2000, 0x206F, // General Punctuation
+        0x4e00, 0x9FAF, // CJK Ideograms
+        0,
+    };
+    // clang-format on
+
     ImFontConfig font_config{};
-    static const ImWchar large_font_chars[] = { L'0', L'1', L'2', L'3', L'4', L'5', L'6', L'7', L'8', L'9', L':', L';', L'<', L'=', L'>' };
 
-    // check existence of default font file
-    if (fs::exists(default_font_path)) {
-        // read default font
-        const auto font_file_size = fs::file_size(default_font_path);
-        gui.font_data.resize(font_file_size);
-        std::ifstream font_stream(default_font_path.string().c_str(), std::ios::in | std::ios::binary);
-        font_stream.read(gui.font_data.data(), font_file_size);
+    // Check existence of fw font file
+    if (fs::exists(latin_fw_font_path)) {
+        // Add fw font to imgui
+        gui.fw_font = true;
+        gui.vita_font = io.Fonts->AddFontFromFileTTF(latin_fw_font_path.string().c_str(), 19.2f, &font_config, latin_range);
+        font_config.MergeMode = true;
+        io.Fonts->AddFontFromFileTTF((fw_font_path / "jpn0.pvf").string().c_str(), 19.2f, &font_config, io.Fonts->GetGlyphRangesJapanese());
+        io.Fonts->AddFontFromFileTTF((fw_font_path / "jpn0.pvf").string().c_str(), 19.2f, &font_config, extra_range);
 
-        // add default font to imgui
-        gui.normal_font = io.Fonts->AddFontFromMemoryTTF(gui.font_data.data(), static_cast<int>(font_file_size), 16.f, &font_config, user_font);
-    } else
-        LOG_WARN("Could not find default font file at \"{}\", falling back to default imgui font.", default_font_path.string());
+        const auto sys_lang = static_cast<SceSystemParamLang>(host.cfg.sys_lang);
+        if (host.cfg.asia_font_support || (sys_lang == SCE_SYSTEM_PARAM_LANG_KOREAN))
+            io.Fonts->AddFontFromFileTTF((fw_font_path / "kr0.pvf").string().c_str(), 19.2f, &font_config, korean_range);
+        if (host.cfg.asia_font_support || (sys_lang == SCE_SYSTEM_PARAM_LANG_CHINESE_T))
+            io.Fonts->AddFontFromFileTTF((fw_font_path / "cn0.pvf").string().c_str(), 19.2f, &font_config, chinese_range);
+        else if (sys_lang == SCE_SYSTEM_PARAM_LANG_CHINESE_S)
+            io.Fonts->AddFontFromFileTTF((fw_font_path / "cn0.pvf").string().c_str(), 19.2f, &font_config, io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
 
-    // check existence of fw font file
-    if (fs::exists(fw_latin_font_path)) {
-        // read fw font
-        const auto font_file_size = fs::file_size(fw_latin_font_path);
-        gui.live_area_font_data.resize(font_file_size);
-        std::ifstream font_stream(fw_latin_font_path.string().c_str(), std::ios::in | std::ios::binary);
-        font_stream.read(gui.live_area_font_data.data(), font_file_size);
-
-        // add fw font to imgui
-        gui.live_area_font = io.Fonts->AddFontFromMemoryTTF(gui.live_area_font_data.data(), static_cast<int>(font_file_size), 19.2f, &font_config, user_font);
-        gui.live_area_asia_font = io.Fonts->AddFontFromFileTTF(fw_jap_path.string().c_str(), 19.2f, &font_config, io.Fonts->GetGlyphRangesChineseFull());
-        gui.live_area_font_large = io.Fonts->AddFontFromMemoryTTF(gui.live_area_font_data.data(), static_cast<int>(font_file_size), 124.f, &font_config, large_font_chars);
+        io.Fonts->Build();
+        font_config.MergeMode = false;
+        gui.large_font = io.Fonts->AddFontFromFileTTF(latin_fw_font_path.string().c_str(), 116.f, &font_config, large_font_chars);
     } else {
-        LOG_WARN("Could not find firmware font file at \"{}\", install firmware fonts package for fix this.", fw_latin_font_path.string());
-        if (!gui.font_data.empty()) {
-            gui.live_area_font = io.Fonts->AddFontFromMemoryTTF(gui.font_data.data(), static_cast<int>(gui.font_data.size()), 19.2f, &font_config, user_font);
-            gui.live_area_asia_font = io.Fonts->AddFontFromMemoryTTF(gui.font_data.data(), static_cast<int>(gui.font_data.size()), 19.2f, &font_config, io.Fonts->GetGlyphRangesChineseFull());
-            gui.live_area_font_large = io.Fonts->AddFontFromMemoryTTF(gui.font_data.data(), static_cast<int>(gui.font_data.size()), 124.f, &font_config, large_font_chars);
-            LOG_WARN("Using default Vita3K font.");
+        LOG_WARN("Could not find firmware font file at \"{}\", install firmware fonts package to fix this.", latin_fw_font_path.string());
+        // Set up default font path
+        const auto default_font_path{ fs::path(host.base_path) / "data/fonts/mplus-1mn-bold.ttf" };
+        // Check existence of default font file
+        if (fs::exists(default_font_path)) {
+            gui.vita_font = io.Fonts->AddFontFromFileTTF(default_font_path.string().c_str(), 22.f, &font_config, latin_range);
+            font_config.MergeMode = true;
+            io.Fonts->AddFontFromFileTTF(default_font_path.string().c_str(), 22.f, &font_config, io.Fonts->GetGlyphRangesJapanese());
+
+            io.Fonts->Build();
+            font_config.MergeMode = false;
+            gui.large_font = io.Fonts->AddFontFromFileTTF(default_font_path.string().c_str(), 134.f, &font_config, large_font_chars);
+
+            LOG_INFO("Using default Vita3K font.");
         } else
             LOG_WARN("Not find default Vita3K, using default imgui font.", default_font_path.string());
     }
-}
-
-ImFont *get_font_format(GuiState &gui, const std::string &title_id) {
-    const auto is_asia = (title_id.find("PCSC") != std::string::npos) || (title_id.find("PCSD") != std::string::npos) || (title_id.find("PCSG") != std::string::npos) || (title_id.find("PCSH") != std::string::npos);
-    const auto font_format = is_asia ? gui.live_area_asia_font : gui.live_area_font;
-
-    return font_format;
 }
 
 void init_apps_icon(GuiState &gui, HostState &host, const std::vector<App> &apps_list) {
@@ -283,6 +299,48 @@ void get_sys_apps_title(GuiState &gui, HostState &host) {
         }
         gui.app_selector.sys_apps.push_back({ host.app_version, host.app_category, {}, host.app_short_title, host.app_title, app });
     }
+}
+
+static const char *const ymonth[] = {
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+};
+
+static const char *const wday[] = {
+    "Sunday", "Monday", "Tuesday", "Wednesday",
+    "Thursday", "Friday", "Saturday"
+};
+
+std::map<std::string, std::string> get_date_time(GuiState &gui, HostState &host, const tm &date_time) {
+    std::map<std::string, std::string> date_time_str;
+    if (!host.io.user_id.empty()) {
+        const auto day_str = !gui.lang.wday.empty() ? gui.lang.wday[date_time.tm_wday] : wday[date_time.tm_wday];
+        const auto month_str = !gui.lang.ymonth.empty() ? gui.lang.ymonth[date_time.tm_mon] : ymonth[date_time.tm_mon];
+        const auto year = date_time.tm_year + 1900;
+        const auto month = date_time.tm_mon + 1;
+        switch (gui.users[host.io.user_id].date_format) {
+        case DateFormat::YYYY_MM_DD:
+            date_time_str["detail-date"] = fmt::format("{} {} ({})", month_str, date_time.tm_mday, day_str);
+            date_time_str["date"] = fmt::format("{}/{}/{}", year, month, date_time.tm_mday);
+            break;
+        case DateFormat::DD_MM_YYYY:
+            date_time_str["detail-date"] = fmt::format("{} {} ({})", date_time.tm_mday, month_str, day_str);
+            date_time_str["date"] = fmt::format("{}/{}/{}", date_time.tm_mday, month, year);
+            break;
+        case DateFormat::MM_DD_YYYY:
+            date_time_str["detail-date"] = fmt::format("{} {} ({})", month_str, date_time.tm_mday, day_str);
+            date_time_str["date"] = fmt::format("{}/{}/{}", month, date_time.tm_mday, year);
+            break;
+        default: break;
+        }
+    }
+    const auto is_afternoon = date_time.tm_hour > 12;
+    const auto clock_12h = is_afternoon && (host.io.user_id.empty() || gui.users[host.io.user_id].clock_12_hour);
+    date_time_str["hour"] = std::to_string(clock_12h ? (date_time.tm_hour - 12) : date_time.tm_hour);
+    date_time_str["clock"] = fmt::format("{}:{:0>2d}", date_time_str["hour"], date_time.tm_min);
+    date_time_str["day-moment"] = is_afternoon ? "PM" : "AM";
+
+    return date_time_str;
 }
 
 void get_user_apps_title(GuiState &gui, HostState &host) {
@@ -420,6 +478,7 @@ void init(GuiState &gui, HostState &host) {
 
     init_style();
     init_font(gui, host);
+    init_lang(gui, host);
     init_users(gui, host);
 
     bool result = ImGui_ImplSdl_CreateDeviceObjects(gui.imgui_state.get());
@@ -455,20 +514,16 @@ void init(GuiState &gui, HostState &host) {
 void draw_begin(GuiState &gui, HostState &host) {
     ImGui_ImplSdl_NewFrame(gui.imgui_state.get());
     host.renderer_focused = !ImGui::GetIO().WantCaptureMouse;
-
-    ImGui::PushFont(gui.normal_font);
 }
 
 void draw_end(GuiState &gui, SDL_Window *window) {
-    ImGui::PopFont();
-
     ImGui::Render();
     ImGui_ImplSdl_RenderDrawData(gui.imgui_state.get());
     SDL_GL_SwapWindow(window);
 }
 
 void draw_live_area(GuiState &gui, HostState &host) {
-    ImGui::PushFont(gui.live_area_font);
+    ImGui::PushFont(gui.vita_font);
 
     if (gui.live_area.app_selector)
         draw_app_selector(gui, host);
@@ -481,26 +536,29 @@ void draw_live_area(GuiState &gui, HostState &host) {
     if (gui.live_area.manual)
         draw_manual(gui, host);
 
-    if (gui.live_area.start_screen)
-        draw_start_screen(gui, host);
+    if (gui.live_area.user_management)
+        draw_user_management(gui, host);
 
-    if (gui.live_area.trophy_collection)
-        draw_trophy_collection(gui, host);
-
+    // System App
     if (gui.live_area.content_manager)
         draw_content_manager(gui, host);
 
     if (gui.live_area.settings)
         draw_settings(gui, host);
 
-    if (gui.live_area.user_management)
-        draw_user_management(gui, host);
+    if (gui.live_area.trophy_collection)
+        draw_trophy_collection(gui, host);
 
     ImGui::PopFont();
+
+    if (gui.live_area.start_screen)
+        draw_start_screen(gui, host);
 }
 
 void draw_ui(GuiState &gui, HostState &host) {
+    ImGui::PushFont(gui.vita_font);
     draw_main_menu_bar(gui, host);
+    ImGui::PopFont();
 
     ImGui::PushFont(gui.monospaced_font);
 

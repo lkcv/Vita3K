@@ -53,7 +53,7 @@ struct App {
 
 struct AppInfo {
     std::string trophy;
-    std::string updated;
+    tm updated;
     size_t size;
 };
 
@@ -135,15 +135,33 @@ struct NoticeInfo {
     std::string msg;
 };
 
+enum DateFormat {
+    YYYY_MM_DD,
+    DD_MM_YYYY,
+    MM_DD_YYYY
+};
+
 struct User {
     std::string id;
     std::string name;
+    DateFormat date_format;
+    bool clock_12_hour;
     std::string avatar;
     std::string theme_id;
     bool use_theme_bg;
     std::string start_type;
     std::string start_path;
     std::vector<std::string> backgrounds;
+};
+
+struct Lang {
+    std::string user_lang;
+    std::map<std::string, std::string> settings;
+    std::map<std::string, std::string> main_menubar;
+    std::map<std::string, std::string> app_context;
+    std::map<std::string, std::string> user_management;
+    std::vector<std::string> wday;
+    std::vector<std::string> ymonth;
 };
 
 struct GuiState {
@@ -157,6 +175,8 @@ struct GuiState {
     gui::HelpMenuState help_menu;
     gui::LiveAreaState live_area;
     gui::AppsSelector app_selector;
+
+    Lang lang;
 
     std::map<std::string, User> users;
     std::map<std::string, ImGui_Texture> users_avatar;
@@ -229,11 +249,8 @@ struct GuiState {
     ImVec2 trophy_window_pos;
 
     // imgui
-    ImFont *normal_font{};
     ImFont *monospaced_font{};
-    ImFont *live_area_font{};
-    ImFont *live_area_asia_font{};
-    ImFont *live_area_font_large{};
-    std::vector<char> font_data;
-    std::vector<char> live_area_font_data;
+    ImFont *vita_font{};
+    ImFont *large_font{};
+    bool fw_font = false;
 };

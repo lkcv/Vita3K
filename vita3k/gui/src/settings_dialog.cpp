@@ -231,9 +231,11 @@ void draw_settings_dialog(GuiState &gui, HostState &host) {
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Check the box to enable Archiving Log.");
         ImGui::SameLine();
+#ifdef USE_DISCORD
         ImGui::Checkbox("Discord Rich Presence", &host.cfg.discord_rich_presence);
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Enables Discord Rich Presence to show what application you're running on discord");
+#endif
         ImGui::Checkbox("Performance overlay", &host.cfg.performance_overlay);
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Display performance information on the screen as an overlay.");
@@ -289,9 +291,13 @@ void draw_settings_dialog(GuiState &gui, HostState &host) {
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Check the box to open Live Area by default when clicking on a application.\nIf disabled, use the right click on application to open it.");
         ImGui::Spacing();
-        ImGui::Checkbox("Grid mode", &host.cfg.apps_list_grid);
+        ImGui::Checkbox("Grid Mode", &host.cfg.apps_list_grid);
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Check the box to enable app list in grid mode.");
+        ImGui::SameLine();
+        ImGui::Checkbox("Asia Region Font Support", &host.cfg.asia_font_support);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Check this box to enable font support for Korean and Traditional Chinese.\nYou will need a Firmware Fonts Package installed for Asia region font support.\Enabling this will use more memory and will require you to restart the emulator.");
         if (!host.cfg.apps_list_grid) {
             ImGui::Spacing();
             ImGui::SliderInt("App Icon Size", &host.cfg.icon_size, 32, 128);
@@ -315,7 +321,7 @@ void draw_settings_dialog(GuiState &gui, HostState &host) {
                     gui.users[host.io.user_id].use_theme_bg = true;
                 gui.users[host.io.user_id].start_path.clear();
                 gui.users[host.io.user_id].start_type = "default";
-                update_user(gui, host, host.io.user_id);
+                save_user(gui, host, host.io.user_id);
                 init_theme_start_background(gui, host, "default");
                 init_apps_icon(gui, host, gui.app_selector.sys_apps);
             }
@@ -323,7 +329,7 @@ void draw_settings_dialog(GuiState &gui, HostState &host) {
         }
         if (!gui.theme_backgrounds.empty())
             if (ImGui::Checkbox("Using theme background", &gui.users[host.io.user_id].use_theme_bg))
-                update_user(gui, host, host.io.user_id);
+                save_user(gui, host, host.io.user_id);
 
         if (!gui.user_backgrounds.empty()) {
             ImGui::Spacing();
@@ -333,7 +339,7 @@ void draw_settings_dialog(GuiState &gui, HostState &host) {
                 if (!gui.theme_backgrounds.empty())
                     gui.users[host.io.user_id].use_theme_bg = true;
                 gui.users[host.io.user_id].backgrounds.clear();
-                update_user(gui, host, host.io.user_id);
+                save_user(gui, host, host.io.user_id);
             }
         }
         ImGui::Spacing();
@@ -344,7 +350,7 @@ void draw_settings_dialog(GuiState &gui, HostState &host) {
                 gui.users[host.io.user_id].start_path.clear();
                 init_theme_start_background(gui, host, gui.users[host.io.user_id].theme_id);
                 gui.users[host.io.user_id].start_type = (gui.users[host.io.user_id].theme_id == "default") ? "default" : "theme";
-                update_user(gui, host, host.io.user_id);
+                save_user(gui, host, host.io.user_id);
             }
         }
         if (!gui.theme_backgrounds.empty() || !gui.user_backgrounds.empty()) {
