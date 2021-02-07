@@ -1,4 +1,4 @@
-# Vita3K
+# Vita3K fork without Discord Support
 
 ![C/C++ CI](https://github.com/Vita3K/Vita3K/workflows/C/C++%20CI/badge.svg)
 
