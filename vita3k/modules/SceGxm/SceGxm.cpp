@@ -119,6 +119,105 @@ static bool operator<(const FragmentProgramCacheKey &a, const FragmentProgramCac
     return b.blend_info < a.blend_info;
 }
 
+static int init_texture_base(const char *export_name, SceGxmTexture *texture, Ptr<const void> data, SceGxmTextureFormat tex_format, uint32_t width, uint32_t height, uint32_t mipCount,
+    const SceGxmTextureType &texture_type) {
+    if (width > 4096 || height > 4096 || mipCount > 13) {
+        return RET_ERROR(SCE_GXM_ERROR_INVALID_VALUE);
+    }
+    // data can be empty to be filled out later.
+
+    // Add supported formats here
+
+    switch (tex_format) {
+    case SCE_GXM_TEXTURE_FORMAT_X8U8U8U8_1BGR:
+    case SCE_GXM_TEXTURE_FORMAT_U4U4U4U4_ARGB:
+    case SCE_GXM_TEXTURE_FORMAT_U8U8U8U8_ABGR:
+    case SCE_GXM_TEXTURE_FORMAT_U8U8U8U8_ARGB:
+    case SCE_GXM_TEXTURE_FORMAT_U4U4U4U4_ABGR:
+    case SCE_GXM_TEXTURE_FORMAT_U1U5U5U5_ABGR:
+    case SCE_GXM_TEXTURE_FORMAT_U5U6U5_BGR:
+    case SCE_GXM_TEXTURE_FORMAT_U5U6U5_RGB:
+    case SCE_GXM_TEXTURE_FORMAT_U8U8U8_BGR:
+    case SCE_GXM_TEXTURE_FORMAT_U8_R111:
+    case SCE_GXM_TEXTURE_FORMAT_U8_111R:
+    case SCE_GXM_TEXTURE_FORMAT_U8_1RRR:
+    case SCE_GXM_TEXTURE_FORMAT_UBC1_ABGR:
+    case SCE_GXM_TEXTURE_FORMAT_UBC2_ABGR:
+    case SCE_GXM_TEXTURE_FORMAT_UBC3_ABGR:
+    case SCE_GXM_TEXTURE_FORMAT_PVRT2BPP_ABGR:
+    case SCE_GXM_TEXTURE_FORMAT_PVRT2BPP_1BGR:
+    case SCE_GXM_TEXTURE_FORMAT_PVRT4BPP_ABGR:
+    case SCE_GXM_TEXTURE_FORMAT_PVRT4BPP_1BGR:
+    case SCE_GXM_TEXTURE_FORMAT_PVRTII2BPP_ABGR:
+    case SCE_GXM_TEXTURE_FORMAT_PVRTII2BPP_1BGR:
+    case SCE_GXM_TEXTURE_FORMAT_PVRTII4BPP_ABGR:
+    case SCE_GXM_TEXTURE_FORMAT_PVRTII4BPP_1BGR:
+        break;
+
+    default:
+        if (gxm::is_paletted_format(tex_format)) {
+            switch (tex_format) {
+            case SCE_GXM_TEXTURE_FORMAT_P8_ABGR:
+            case SCE_GXM_TEXTURE_FORMAT_P8_1BGR:
+            case SCE_GXM_TEXTURE_FORMAT_P4_ABGR:
+                break;
+            default:
+                LOG_WARN("Initialized texture with untested paletted texture format: {}", log_hex(tex_format));
+            }
+        } else if (gxm::is_yuv_format(tex_format)) {
+            switch (tex_format) {
+            case SCE_GXM_TEXTURE_FORMAT_YUV420P2_CSC0:
+            case SCE_GXM_TEXTURE_FORMAT_YVU420P2_CSC0:
+            case SCE_GXM_TEXTURE_FORMAT_YUV420P2_CSC1:
+            case SCE_GXM_TEXTURE_FORMAT_YVU420P2_CSC1:
+            case SCE_GXM_TEXTURE_FORMAT_YUV420P3_CSC0:
+            case SCE_GXM_TEXTURE_FORMAT_YVU420P3_CSC0:
+            case SCE_GXM_TEXTURE_FORMAT_YUV420P3_CSC1:
+            case SCE_GXM_TEXTURE_FORMAT_YVU420P3_CSC1:
+                break;
+            default:
+                LOG_WARN("Initialized texture with untested YUV texture format: {}", log_hex(tex_format));
+            }
+        } else
+            LOG_ERROR("Initialized texture with unsupported texture format: {}", log_hex(tex_format));
+    }
+
+    texture->mip_count = std::min<std::uint32_t>(0, mipCount - 1);
+    texture->format0 = (tex_format & 0x80000000) >> 31;
+    texture->lod_bias = 31;
+
+    if (texture_type == SCE_GXM_TEXTURE_SWIZZLED) {
+        // Find highest set bit of width and height. It's also the 2^? for width and height
+        static auto highest_set_bit = [](const int num) -> std::uint32_t {
+            for (std::uint32_t i = 12; i >= 0; i--) {
+                if (num & (1 << i)) {
+                    return i;
+                }
+            }
+
+            return 0;
+        };
+
+        texture->uaddr_mode = texture->vaddr_mode = SCE_GXM_TEXTURE_ADDR_MIRROR;
+        texture->height = highest_set_bit(height);
+        texture->width = highest_set_bit(width);
+    } else {
+        texture->uaddr_mode = texture->vaddr_mode = SCE_GXM_TEXTURE_ADDR_CLAMP;
+        texture->height = height - 1;
+        texture->width = width - 1;
+    }
+
+    texture->base_format = (tex_format & 0x1F000000) >> 24;
+    texture->type = texture_type >> 29;
+    texture->data_addr = data.address() >> 2;
+    texture->swizzle_format = (tex_format & 0x7000) >> 12;
+    texture->normalize_mode = 1;
+    texture->min_filter = SCE_GXM_TEXTURE_FILTER_POINT;
+    texture->mag_filter = SCE_GXM_TEXTURE_FILTER_POINT;
+
+    return 0;
+}
+
 EXPORT(int, _sceGxmBeginScene) {
     return UNIMPLEMENTED();
 }
@@ -299,6 +398,11 @@ EXPORT(int, sceGxmColorSurfaceInit, SceGxmColorSurface *surface, SceGxmColorForm
     surface->colorFormat = colorFormat;
     surface->surfaceType = surfaceType;
     surface->outputRegisterSize = outputRegisterSize;
+
+    // Create background object, for here don't return an error
+    if (init_texture_base(export_name, &surface->backgroundTex, Ptr<void>(0), SCE_GXM_TEXTURE_FORMAT_A8R8G8B8, surface->width, surface->height, 0, SCE_GXM_TEXTURE_LINEAR) != SCE_KERNEL_OK) {
+        LOG_WARN("Unable to initialize background object control texture!");
+    }
 
     return 0;
 }
@@ -705,6 +809,10 @@ EXPORT(int, sceGxmDrawPrecomputed, SceGxmContext *context, SceGxmPrecomputedDraw
 
     if (!host.gxm.is_in_scene) {
         return RET_ERROR(SCE_GXM_ERROR_NOT_WITHIN_SCENE);
+    }
+
+    if (!draw) {
+        return RET_ERROR(SCE_GXM_ERROR_INVALID_POINTER);
     }
 
     SceGxmPrecomputedVertexState *vertex_state = context->state.precomputed_vertex_state.cast<SceGxmPrecomputedVertexState>().get(host.mem);
@@ -1563,6 +1671,14 @@ EXPORT(int, sceGxmProgramParameterGetType, const SceGxmProgramParameter *paramet
 }
 
 EXPORT(bool, sceGxmProgramParameterIsRegFormat, const SceGxmProgram *program, const SceGxmProgramParameter *parameter) {
+    if (program->is_fragment()) {
+        return false;
+    }
+
+    if (parameter->category != SceGxmParameterCategory::SCE_GXM_PARAMETER_CATEGORY_ATTRIBUTE) {
+        return false;
+    }
+
     return UNIMPLEMENTED();
 }
 
@@ -1699,11 +1815,13 @@ EXPORT(int, sceGxmSetDeferredContextVertexBuffer, SceGxmContext *deferredContext
     return UNIMPLEMENTED();
 }
 
-EXPORT(int, sceGxmSetFragmentDefaultUniformBuffer, SceGxmContext *context, const void *bufferData) {
+EXPORT(int, sceGxmSetFragmentDefaultUniformBuffer, SceGxmContext *context, Ptr<const void> bufferData) {
     if (!context || !bufferData) {
         return RET_ERROR(SCE_GXM_ERROR_INVALID_POINTER);
     }
-    return UNIMPLEMENTED();
+
+    context->state.fragment_uniform_buffers[SCE_GXM_DEFAULT_UNIFORM_BUFFER_CONTAINER_INDEX] = bufferData;
+    return 0;
 }
 
 EXPORT(void, sceGxmSetFragmentProgram, SceGxmContext *context, Ptr<const SceGxmFragmentProgram> fragmentProgram) {
@@ -1832,6 +1950,9 @@ EXPORT(int, sceGxmSetUniformDataF, void *uniformBuffer, const SceGxmProgramParam
     if (!uniformBuffer || !parameter || !sourceData)
         return RET_ERROR(SCE_GXM_ERROR_INVALID_POINTER);
 
+    if (parameter->category != SceGxmParameterCategory::SCE_GXM_PARAMETER_CATEGORY_UNIFORM)
+        return RET_ERROR(SCE_GXM_ERROR_INVALID_VALUE);
+
     size_t size = 0;
     size_t offset = 0;
     bool is_float = false;
@@ -1959,11 +2080,13 @@ EXPORT(int, sceGxmSetValidationEnable) {
     return UNIMPLEMENTED();
 }
 
-EXPORT(int, sceGxmSetVertexDefaultUniformBuffer, SceGxmContext *context, const void *bufferData) {
+EXPORT(int, sceGxmSetVertexDefaultUniformBuffer, SceGxmContext *context, Ptr<const void> bufferData) {
     if (!context || !bufferData) {
         return RET_ERROR(SCE_GXM_ERROR_INVALID_POINTER);
     }
-    return UNIMPLEMENTED();
+
+    context->state.vertex_uniform_buffers[SCE_GXM_DEFAULT_UNIFORM_BUFFER_CONTAINER_INDEX] = bufferData;
+    return 0;
 }
 
 EXPORT(void, sceGxmSetVertexProgram, SceGxmContext *context, Ptr<const SceGxmVertexProgram> vertexProgram) {
@@ -2528,105 +2651,6 @@ EXPORT(int, sceGxmTextureInitCubeArbitrary, SceGxmTexture *texture, const void *
         return RET_ERROR(SCE_GXM_ERROR_INVALID_POINTER);
     }
     return UNIMPLEMENTED();
-}
-
-static int init_texture_base(const char *export_name, SceGxmTexture *texture, Ptr<const void> data, SceGxmTextureFormat tex_format, uint32_t width, uint32_t height, uint32_t mipCount,
-    const SceGxmTextureType &texture_type) {
-    if (width > 4096 || height > 4096 || mipCount > 13) {
-        return RET_ERROR(SCE_GXM_ERROR_INVALID_VALUE);
-    }
-    // data can be empty to be filled out later.
-
-    // Add supported formats here
-
-    switch (tex_format) {
-    case SCE_GXM_TEXTURE_FORMAT_X8U8U8U8_1BGR:
-    case SCE_GXM_TEXTURE_FORMAT_U4U4U4U4_ARGB:
-    case SCE_GXM_TEXTURE_FORMAT_U8U8U8U8_ABGR:
-    case SCE_GXM_TEXTURE_FORMAT_U8U8U8U8_ARGB:
-    case SCE_GXM_TEXTURE_FORMAT_U4U4U4U4_ABGR:
-    case SCE_GXM_TEXTURE_FORMAT_U1U5U5U5_ABGR:
-    case SCE_GXM_TEXTURE_FORMAT_U5U6U5_BGR:
-    case SCE_GXM_TEXTURE_FORMAT_U5U6U5_RGB:
-    case SCE_GXM_TEXTURE_FORMAT_U8U8U8_BGR:
-    case SCE_GXM_TEXTURE_FORMAT_U8_R111:
-    case SCE_GXM_TEXTURE_FORMAT_U8_111R:
-    case SCE_GXM_TEXTURE_FORMAT_U8_1RRR:
-    case SCE_GXM_TEXTURE_FORMAT_UBC1_ABGR:
-    case SCE_GXM_TEXTURE_FORMAT_UBC2_ABGR:
-    case SCE_GXM_TEXTURE_FORMAT_UBC3_ABGR:
-    case SCE_GXM_TEXTURE_FORMAT_PVRT2BPP_ABGR:
-    case SCE_GXM_TEXTURE_FORMAT_PVRT2BPP_1BGR:
-    case SCE_GXM_TEXTURE_FORMAT_PVRT4BPP_ABGR:
-    case SCE_GXM_TEXTURE_FORMAT_PVRT4BPP_1BGR:
-    case SCE_GXM_TEXTURE_FORMAT_PVRTII2BPP_ABGR:
-    case SCE_GXM_TEXTURE_FORMAT_PVRTII2BPP_1BGR:
-    case SCE_GXM_TEXTURE_FORMAT_PVRTII4BPP_ABGR:
-    case SCE_GXM_TEXTURE_FORMAT_PVRTII4BPP_1BGR:
-        break;
-
-    default:
-        if (gxm::is_paletted_format(tex_format)) {
-            switch (tex_format) {
-            case SCE_GXM_TEXTURE_FORMAT_P8_ABGR:
-            case SCE_GXM_TEXTURE_FORMAT_P8_1BGR:
-            case SCE_GXM_TEXTURE_FORMAT_P4_ABGR:
-                break;
-            default:
-                LOG_WARN("Initialized texture with untested paletted texture format: {}", log_hex(tex_format));
-            }
-        } else if (gxm::is_yuv_format(tex_format)) {
-            switch (tex_format) {
-            case SCE_GXM_TEXTURE_FORMAT_YUV420P2_CSC0:
-            case SCE_GXM_TEXTURE_FORMAT_YVU420P2_CSC0:
-            case SCE_GXM_TEXTURE_FORMAT_YUV420P2_CSC1:
-            case SCE_GXM_TEXTURE_FORMAT_YVU420P2_CSC1:
-            case SCE_GXM_TEXTURE_FORMAT_YUV420P3_CSC0:
-            case SCE_GXM_TEXTURE_FORMAT_YVU420P3_CSC0:
-            case SCE_GXM_TEXTURE_FORMAT_YUV420P3_CSC1:
-            case SCE_GXM_TEXTURE_FORMAT_YVU420P3_CSC1:
-                break;
-            default:
-                LOG_WARN("Initialized texture with untested YUV texture format: {}", log_hex(tex_format));
-            }
-        } else
-            LOG_ERROR("Initialized texture with unsupported texture format: {}", log_hex(tex_format));
-    }
-
-    texture->mip_count = std::min<std::uint32_t>(0, mipCount - 1);
-    texture->format0 = (tex_format & 0x80000000) >> 31;
-    texture->lod_bias = 31;
-
-    if (texture_type == SCE_GXM_TEXTURE_SWIZZLED) {
-        // Find highest set bit of width and height. It's also the 2^? for width and height
-        static auto highest_set_bit = [](const int num) -> std::uint32_t {
-            for (std::uint32_t i = 12; i >= 0; i--) {
-                if (num & (1 << i)) {
-                    return i;
-                }
-            }
-
-            return 0;
-        };
-
-        texture->uaddr_mode = texture->vaddr_mode = SCE_GXM_TEXTURE_ADDR_MIRROR;
-        texture->height = highest_set_bit(height);
-        texture->width = highest_set_bit(width);
-    } else {
-        texture->uaddr_mode = texture->vaddr_mode = SCE_GXM_TEXTURE_ADDR_CLAMP;
-        texture->height = height - 1;
-        texture->width = width - 1;
-    }
-
-    texture->base_format = (tex_format & 0x1F000000) >> 24;
-    texture->type = texture_type >> 29;
-    texture->data_addr = data.address() >> 2;
-    texture->swizzle_format = (tex_format & 0x7000) >> 12;
-    texture->normalize_mode = 1;
-    texture->min_filter = SCE_GXM_TEXTURE_FILTER_POINT;
-    texture->mag_filter = SCE_GXM_TEXTURE_FILTER_POINT;
-
-    return 0;
 }
 
 EXPORT(int, sceGxmTextureInitLinear, SceGxmTexture *texture, Ptr<const void> data, SceGxmTextureFormat texFormat, uint32_t width, uint32_t height, uint32_t mipCount) {
